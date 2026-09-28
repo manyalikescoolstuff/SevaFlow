@@ -143,7 +143,10 @@ class Token(Base):
     # Set when customer registers (CLAIMED → WAITING)
     tracking_secret_hash = Column(String, nullable=True)
 
-    # Queue ordering — both set atomically under Queue row lock at registration
+    customer_name = Column(String(120), nullable=True)
+    phone_number = Column(String(10), nullable=True)
+
+    # Queue ordering — allocated once under Queue row lock on successful claim
     scan_sequence = Column(BigInteger, nullable=True, index=True)  # immutable first-scan order
     sort_key = Column(BigInteger, nullable=True, index=True)        # mutable queue position
 

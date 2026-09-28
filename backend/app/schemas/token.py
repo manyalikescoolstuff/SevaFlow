@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -24,8 +24,10 @@ class ClaimRequest(BaseModel):
     """Browser claims a token after scanning QR."""
     hardware_reservation_id: str
     claim_secret_hash: str
-    recovery_credential_hash: str     # Browser-generated before this request
-    browser_session_id: str           # Browser-generated session ID
+    recovery_credential_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    browser_session_id: str = Field(min_length=16, max_length=128)
+    service_id: Optional[str] = None
+    display_number: Optional[str] = None
 
 
 class ClaimResponse(BaseModel):
@@ -34,15 +36,29 @@ class ClaimResponse(BaseModel):
     status: str
     queue_id: str
     reservation_expires_at: datetime
-
-
-class RegistrationRequest(BaseModel):
-    """Browser submits form to activate the token."""
-    token_id: str
     claim_session_id: str
-    tracking_secret_hash: str
-    customer_name: str
-    phone_number: Optional[str] = None
+    scan_sequence: Optional[int] = None
+    service_id: str
+    registered_at: Optional[datetime] = None
+    server_time: datetime
+
+
+class RecoveryRequest(BaseModel):
+    token_id: str
+    claim_session_id: str = Field(min_length=16, max_length=128)
+    recovery_credential_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class RegistrationRequest(RecoveryRequest):
+    """Browser submits form to activate the token."""
+    tracking_secret_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    customer_name: str = Field(min_length=2, max_length=120)
+    phone_number: str = Field(pattern=r"^[6-9][0-9]{9}$")
+
+    @field_validator("customer_name", mode="before")
+    @classmethod
+    def normalize_name(cls, value):
+        return " ".join(value.split()) if isinstance(value, str) else value
 
 
 class RegistrationResponse(BaseModel):
@@ -63,6 +79,10 @@ class TokenStatusResponse(BaseModel):
     called_at: Optional[datetime] = None
     serving_started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    people_ahead: Optional[int] = None
+    estimated_wait_minutes: Optional[int] = None
+    counter_label: Optional[str] = None
+    server_time: datetime
 
     class Config:
         from_attributes = True

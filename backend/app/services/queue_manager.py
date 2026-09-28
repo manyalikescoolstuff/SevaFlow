@@ -97,127 +97,130 @@ async def reserve_token(
 # Browser claim (first QR scan)
 # ---------------------------------------------------------------------------
 
-async def claim_token(
-    db: AsyncSession,
-    *,
-    hardware_reservation_id: str,
-    claim_secret_hash: str,
-    recovery_credential_hash: str,
-    browser_session_id: str,
-) -> Token:
-    """
-    Transition RESERVED → CLAIMED.
+class CustomerConflict(ValueError):
+    """A retry changed the original operation payload."""
 
-    Rules:
-    - Token must be RESERVED and not expired.
-    - claim_secret_hash must match stored hash.
-    - recovery_credential_hash (browser-generated before this call) is stored.
-    - browser_session_id is the claim session ID (unique, stored on token).
-    - Idempotent retry: if already CLAIMED with same browser_session_id, return token.
-    - Another browser with only the QR cannot take over a CLAIMED token.
-    """
-    token_res = await db.execute(
-        select(Token)
-        .where(Token.hardware_reservation_id == hardware_reservation_id)
-        .with_for_update()
-    )
-    token = token_res.scalars().first()
 
-    if not token:
+class ReservationExpired(ValueError):
+    pass
+
+
+def _matches(stored: Optional[str], supplied: str) -> bool:
+    import hmac
+    return bool(stored and supplied and hmac.compare_digest(stored.encode(), supplied.encode()))
+
+
+async def _lock_customer_token(db: AsyncSession, condition):
+    # Read queue identity without taking a Token lock; then lock Queue -> Token.
+    queue_id = (await db.execute(select(Token.queue_id).where(condition))).scalar_one_or_none()
+    if queue_id is None:
         raise ValueError("Token not found")
+    queue = (await db.execute(
+        select(Queue).where(Queue.id == queue_id).with_for_update()
+        .execution_options(populate_existing=True)
+    )).scalar_one()
+    token = (await db.execute(
+        select(Token).where(condition).with_for_update()
+        .execution_options(populate_existing=True)
+    )).scalar_one()
+    return queue, token
 
-    # Idempotent retry from same browser
-    if token.status == "CLAIMED":
-        if token.claim_session_id == browser_session_id:
-            return token  # safe retry
-        raise PermissionError("Token already claimed by another browser")
 
-    if token.status != "RESERVED":
-        raise ValueError(f"Token is in state {token.status}, cannot claim")
+def _authenticate(token: Token, session_id: str, recovery_hash: str):
+    if not (_matches(token.claim_session_id, session_id)
+            and _matches(token.recovery_credential_hash, recovery_hash)):
+        raise PermissionError("This token belongs to another browser. Use the original device.")
 
-    if token.claim_secret_hash != claim_secret_hash:
+
+def _check_deadline(token: Token):
+    # Check after ALL locks. Registered tokens never expire here.
+    if token.registered_at is None and token.reservation_expires_at <= _now():
+        raise ReservationExpired("Registration deadline expired. Request a new token at the kiosk.")
+
+
+async def claim_token(
+    db: AsyncSession, *, hardware_reservation_id: str, claim_secret_hash: str,
+    recovery_credential_hash: str, browser_session_id: str,
+    service_id: Optional[str] = None, display_number: Optional[str] = None,
+) -> Token:
+    queue, token = await _lock_customer_token(
+        db, Token.hardware_reservation_id == hardware_reservation_id)
+    if not _matches(token.claim_secret_hash, claim_secret_hash):
         raise PermissionError("Invalid claim secret")
-
-    if token.reservation_expires_at < _now():
-        token.status = "EXPIRED"
-        _log(db, "Token", token.id, "EXPIRED", {"reason": "claim_attempted_after_expiry"})
-        raise ValueError("Reservation expired")
-
-    token.status = "CLAIMED"
-    token.claim_session_id = browser_session_id
-    token.recovery_credential_hash = recovery_credential_hash
-    token.claimed_at = _now()
-
-    _log(db, "Token", token.id, "CLAIMED", {
-        "hardware_reservation_id": hardware_reservation_id,
-    })
-
+    if ((service_id is not None and queue.service_id != service_id)
+            or (display_number is not None and token.display_number != display_number)):
+        raise ValueError("QR service or token number does not match this reservation")
+    if token.status != "RESERVED":
+        _authenticate(token, browser_session_id, recovery_credential_hash)
+        if token.status in ("CANCELLED", "EXPIRED"):
+            raise ValueError(f"Token is {token.status}")
+        _check_deadline(token)
+        if token.scan_sequence is not None:
+            return token
+        if token.status != "CLAIMED":
+            raise CustomerConflict("Legacy token has no scan priority")
+    else:
+        _check_deadline(token)
+        token.status = "CLAIMED"
+        token.claim_session_id = browser_session_id
+        token.recovery_credential_hash = recovery_credential_hash
+        token.claimed_at = _now()
+    # Legacy unsequenced claims get priority on authenticated rescan; do not
+    # fabricate historical ordering or change already allocated sequence values.
+    queue.current_sequence += 1
+    token.scan_sequence = queue.current_sequence
+    token.sort_key = token.scan_sequence
+    _log(db, "Token", token.id, "CLAIMED", {"scan_sequence": token.scan_sequence})
     return token
 
 
-# ---------------------------------------------------------------------------
-# Registration (form submission → WAITING)
-# ---------------------------------------------------------------------------
+async def recover_token(db: AsyncSession, *, token_id: str,
+                        claim_session_id: str, recovery_credential_hash: str) -> Token:
+    _, token = await _lock_customer_token(db, Token.id == token_id)
+    _authenticate(token, claim_session_id, recovery_credential_hash)
+    if token.status not in ("CANCELLED", "EXPIRED"):
+        _check_deadline(token)
+    return token
+
 
 async def register_token(
-    db: AsyncSession,
-    *,
-    token_id: str,
-    claim_session_id: str,
-    tracking_secret_hash: str,
-    customer_name: str,
+    db: AsyncSession, *, token_id: str, claim_session_id: str,
+    recovery_credential_hash: str, tracking_secret_hash: str,
+    customer_name: str, phone_number: str,
 ) -> Token:
-    """
-    Transition CLAIMED → WAITING.
-    Allocates immutable scan_sequence and initial sort_key under Queue lock.
-
-    Idempotent: if already WAITING with same claim_session_id, return token.
-    """
-    # Lock token first (token id known, safe starting point)
-    tok_res = await db.execute(
-        select(Token).where(Token.id == token_id).with_for_update()
-    )
-    token = tok_res.scalars().first()
-    if not token:
-        raise ValueError("Token not found")
-
-    if token.status == "WAITING":
-        if token.claim_session_id == claim_session_id:
-            return token  # idempotent retry
-        raise PermissionError("Session mismatch on registration retry")
-
+    _, token = await _lock_customer_token(db, Token.id == token_id)
+    _authenticate(token, claim_session_id, recovery_credential_hash)
+    if token.registered_at is not None:
+        # A lost response can be retried after dispatch/completion or the deadline.
+        if (token.customer_name != customer_name or token.phone_number != phone_number
+                or not _matches(token.tracking_secret_hash, tracking_secret_hash)):
+            raise CustomerConflict("Registration already completed with different details")
+        return token
     if token.status != "CLAIMED":
-        raise ValueError(f"Token in state {token.status}, cannot register")
-
-    if token.claim_session_id != claim_session_id:
-        raise PermissionError("Invalid claim session")
-
-    if token.reservation_expires_at < _now():
-        token.status = "EXPIRED"
-        _log(db, "Token", token.id, "EXPIRED", {"reason": "registration_after_expiry"})
-        raise ValueError("Reservation expired")
-
-    # Lock queue for sequence/sort_key allocation
-    q_res = await db.execute(
-        select(Queue).where(Queue.id == token.queue_id).with_for_update()
-    )
-    queue = q_res.scalars().first()
-
-    queue.current_sequence += 1
-    seq = queue.current_sequence
-
+        raise ValueError(f"Token is {token.status}, cannot register")
+    _check_deadline(token)
+    if token.scan_sequence is None:
+        raise CustomerConflict("Please scan your QR again to establish claim priority")
     token.status = "WAITING"
-    token.scan_sequence = seq
-    token.sort_key = seq  # initial sort_key equals scan_sequence
     token.tracking_secret_hash = tracking_secret_hash
+    token.customer_name = customer_name
+    token.phone_number = phone_number
     token.registered_at = _now()
+    _log(db, "Token", token.id, "WAITING", {"scan_sequence": token.scan_sequence})
+    return token
 
-    _log(db, "Token", token.id, "WAITING", {
-        "scan_sequence": seq,
-        "sort_key": seq,
-        "customer_name": customer_name,
-    })
 
+async def reject_token(db: AsyncSession, *, token_id: str,
+                       claim_session_id: str, recovery_credential_hash: str) -> Token:
+    _, token = await _lock_customer_token(db, Token.id == token_id)
+    _authenticate(token, claim_session_id, recovery_credential_hash)
+    if token.status == "CANCELLED":
+        return token
+    if token.status != "CLAIMED" or token.registered_at is not None:
+        raise CustomerConflict("Only an unregistered claim can be rejected")
+    _check_deadline(token)
+    token.status = "CANCELLED"
+    _log(db, "Token", token.id, "CANCELLED", {"reason": "customer_rejected"})
     return token
 
 

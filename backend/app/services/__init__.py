@@ -1,1 +1,4 @@
-from app.services.queue_manager import QueueManager
+from app.services import queue_manager
+
+__all__ = ["queue_manager"]
+
