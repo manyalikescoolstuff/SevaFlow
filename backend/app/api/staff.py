@@ -8,12 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_staff
+from app.core.deps import get_current_staff, get_counter_staff
 from app.core.security import verify_password, create_access_token
 from app.models.schema import Counter, Staff, Token, Queue, Service
 from app.schemas.counter import Counter as CounterSchema
 from app.schemas.staff import LoginRequest, LoginResponse, StaffResponse
 from app.services import queue_manager
+from app.api.workstation import CommandRequest, command as workstation_command
 
 router = APIRouter(tags=["staff"])
 
@@ -92,7 +93,7 @@ async def list_services(db: AsyncSession = Depends(get_db)):
 async def call_next(
     counter_id: str,
     db: AsyncSession = Depends(get_db),
-    current_staff: Staff = Depends(get_current_staff),
+    current_staff: Staff = Depends(get_counter_staff),
 ):
     """
     Complete & Next: finishes current SERVING token, then calls next token.
@@ -119,7 +120,7 @@ async def call_next(
 async def start_service(
     counter_id: str,
     db: AsyncSession = Depends(get_db),
-    current_staff: Staff = Depends(get_current_staff),
+    current_staff: Staff = Depends(get_counter_staff),
 ):
     """
     Start Service: transitions CALLED → SERVING.
@@ -144,51 +145,20 @@ async def start_service(
 @router.post("/counters/{counter_id}/missed")
 async def mark_missed(
     counter_id: str,
+    req: CommandRequest,
     db: AsyncSession = Depends(get_db),
     current_staff: Staff = Depends(get_current_staff),
 ):
-    """
-    Mark current CALLED token as MISSED (first miss — not a recall attempt).
-    Immediately calls next WAITING token.
-    """
-    try:
-        next_token = await queue_manager.mark_missed(
-            db,
-            counter_id=counter_id,
-            actor_id=current_staff.id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    await db.commit()
-    return {
-        "message": "Marked missed",
-        "next_token_id": next_token.id if next_token else None,
-        "next_display_number": next_token.display_number if next_token else None,
-    }
+    """Compatibility route using the same retry-safe command contract."""
+    return await workstation_command(counter_id, "missed", req, db, current_staff)
 
 
 @router.post("/counters/{counter_id}/absent-again")
 async def mark_absent_again(
     counter_id: str,
+    req: CommandRequest,
     db: AsyncSession = Depends(get_db),
     current_staff: Staff = Depends(get_current_staff),
 ):
-    """
-    During a recall: customer absent again.
-    Increments recall_attempts. After 2 → CLOSED_MISSED.
-    Then immediately checks for another due missed token before calling normal waiting.
-    """
-    try:
-        next_token = await queue_manager.mark_absent_again(
-            db,
-            counter_id=counter_id,
-            actor_id=current_staff.id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    await db.commit()
-    return {
-        "message": "Absent again recorded",
-        "next_token_id": next_token.id if next_token else None,
-        "next_display_number": next_token.display_number if next_token else None,
-    }
+    """Recall absence requires request identity and the expected attempt count."""
+    return await workstation_command(counter_id, "absent-again", req, db, current_staff)

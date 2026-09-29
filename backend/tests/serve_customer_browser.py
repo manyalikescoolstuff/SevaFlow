@@ -14,8 +14,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.core.config import settings
 from app.core.database import Base, get_db
-from app.models.schema import Service, Queue, Counter, Token
+from app.models.schema import Service, Queue, Counter, Token, Staff
+from app.core.security import hash_password
 from app.api.customer import router
+from app.api.staff import router as staff_router
+from app.api.workstation import router as workstation_router
 from app.services.queue_manager import _now
 
 schema = 'test_customer_browser_' + uuid.uuid4().hex
@@ -35,12 +38,17 @@ async def lifespan(app):
             await db.flush()
             db.add(Queue(id='test-queue', service_id='svc-aadhaar', current_sequence=0))
             await db.flush()
-            db.add(Counter(id='test-counter', label='Test counter', service_id='svc-aadhaar', queue_id='test-queue'))
+            db.add(Staff(id='browser-staff', name='Test Operator', username='browser-staff',
+                         hashed_password=hash_password('staff-browser-test'), role='STAFF'))
+            await db.flush()
+            db.add(Counter(id='test-counter', label='Test counter', service_id='svc-aadhaar', queue_id='test-queue', staff_id='browser-staff'))
             for n in (24,25):
                 db.add(Token(id=f'browser-token-{n}', display_number=f'A0{n}', queue_id='test-queue', status='RESERVED',
-                    hardware_reservation_id=f'browser-check-{n}', claim_secret_hash=hashlib.sha256(b'browser-test-only').hexdigest(),
+                    hardware_reservation_id=f'browser-check-{n}-{schema[-8:]}', claim_secret_hash=hashlib.sha256(b'browser-test-only').hexdigest(),
                     reservation_expires_at=_now()+timedelta(minutes=15)))
         print('Isolated browser test API ready. No public queue data is used.')
+        print(f'Test schema: {schema}', flush=True)
+        print(f'Customer reservation suffix: {schema[-8:]}', flush=True)
         yield
     finally:
         await engine.dispose()
@@ -50,6 +58,8 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(router, prefix='/api/v1')
+app.include_router(staff_router, prefix='/api/v1')
+app.include_router(workstation_router, prefix='/api/v1')
 async def database():
     async with sessions() as db:
         try:

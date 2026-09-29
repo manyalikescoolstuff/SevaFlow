@@ -4,6 +4,7 @@ import { RoleSelectPage } from '@/pages/RoleSelect';
 
 import { StaffLayout } from '@/pages/staff/StaffLayout';
 import { StaffDashboardPage } from '@/pages/staff/StaffDashboard';
+import { LiveStaffPage } from '@/pages/staff/LiveStaff';
 
 import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { OverviewPage } from '@/pages/admin/Overview';
@@ -31,6 +32,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '/staff',
+    element: <LiveStaffPage />,
+  },
+  {
+    path: '/staff/demo',
     element: <StaffLayout />,
     children: [
       { index: true, element: <StaffDashboardPage /> },

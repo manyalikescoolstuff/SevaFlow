@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models.schema import Staff
+from app.models.schema import Staff, Counter, Queue
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -39,4 +39,19 @@ async def get_current_staff(
 async def require_admin(staff: Staff = Depends(get_current_staff)) -> Staff:
     if staff.role != "ADMIN":
         raise HTTPException(status_code=403, detail="Admin access required")
+    return staff
+
+
+async def get_counter_staff(counter_id: str, db: AsyncSession = Depends(get_db),
+                            staff: Staff = Depends(get_current_staff)) -> Staff:
+    """Apply assignment checks to the pre-existing counter action routes too."""
+    queue_id = (await db.execute(select(Counter.queue_id).where(Counter.id == counter_id))).scalar_one_or_none()
+    if queue_id is None:
+        raise HTTPException(404, 'Counter not found')
+    await db.execute(select(Queue).where(Queue.id == queue_id).with_for_update())
+    counter = (await db.execute(select(Counter).where(Counter.id == counter_id).with_for_update())).scalar_one()
+    if staff.role != 'STAFF' or counter.staff_id != staff.id:
+        raise HTTPException(403, 'This counter is not assigned to you')
+    if counter.status == 'CLOSED':
+        raise HTTPException(409, 'Counter is closed')
     return staff

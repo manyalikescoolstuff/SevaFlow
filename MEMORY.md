@@ -236,3 +236,21 @@ Migration c81f2a9d401e adds nullable customer fields without reordering existing
 See customer/backend/README.md and customer/frontend/README.md for current contracts,
 real QR credential format, run instructions and isolated PostgreSQL/browser tests.
 The older Stage 1 description and next-steps list above are historical.
+
+## Live staff update — 29 September 2026
+
+The staff frontend `/staff` now uses actual login and assigned counter state;
+`/staff/demo` preserves the previous demo. The new `/api/v1/staff/workstation` and
+`/staff/counters/{id}/{next|start|pause|resume}` endpoints check ownership, stale
+expectations and idempotent command fingerprints. Migration d34b1c607a2f is additive.
+Counter pause preserves current service and prevents new dispatch. Existing JWT
+helpers now import settings correctly. Missed/recall UI integration remains pending.
+See frontend/STAFF_INTEGRATION.md. Pico firmware work remains on hold.
+
+## Missed-customer implementation — 29 September 2026
+- Live staff supports initial Mark Missed & Next, first recall absence, and explicit closure on second recall absence.
+- An actual completed service sets persisted recall_ready; call/skip/retry/refresh cannot consume or create recall opportunities. Pause preserves readiness for resume.
+- Initial priority and original missed timestamp remain unchanged. Recall exhaustion is CLOSED_MISSED with audit reason, not service completion or QR expiry.
+- All missed routes use saved request identity and expected token state; recall absence also requires expected_recall_attempts to reject stale first-recall commands at the second recall.
+- Single-missed scope only: a second initial miss while another token is MISSED returns 409 without mutation, pending a multiple-missed policy decision. Empty queue retains pending token without auto-recall/closure.
+- Migration e52a7109bc63 applied. All 35 backend tests and staff production build pass. Isolated browser verification confirmed customer MISSED tracking and staff pending-recall list. Remaining recall-button browser checks were interrupted by browser click failures; the full sequence is verified by API tests.

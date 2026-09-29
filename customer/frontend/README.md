@@ -56,8 +56,8 @@ $env:SEVAFLOW_API_TARGET='http://127.0.0.1:8001'
 npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
 ```
 
-Use `/qr?cat=aadhar&qNo=A024&reservation=browser-check-24#claim=browser-test-only`
-on port 5175. A025 / browser-check-25 is available for rejection testing. This
+Use `/qr?cat=aadhar&qNo=A024&reservation=browser-check-24-<printed-suffix>#claim=browser-test-only`
+on port 5175. The fixture prints the unique suffix. A025 / browser-check-25-<printed-suffix> is available for rejection testing. This
 fixture uses a disposable schema and test-only secrets. Stop it with Ctrl+C to
 remove its test schema. Use a fresh browser context for each fixture run.
 

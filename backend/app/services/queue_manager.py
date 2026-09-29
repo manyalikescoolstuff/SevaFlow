@@ -10,7 +10,7 @@ Recall rules (approved):
   - MISSED token stays MISSED. missed_counter_id records the responsible counter.
   - recall_attempts: incremented only on an unsuccessful explicit recall attempt.
   - Original MISSED call is NOT counted as attempt 1.
-  - After recall_attempts == 2 and another absence → status = CLOSED_MISSED.
+  - When recall_attempts reaches 2 → status = CLOSED_MISSED.
   - Complete & Next checks for due recalls before calling normal waiting customers.
   - Multiple missed tokens (OPEN POLICY — see comments below).
 """
@@ -238,9 +238,9 @@ async def complete_and_next(
     Mark current token COMPLETED (must be SERVING).
     Then:
       1. Check for any MISSED tokens assigned to this counter that are due for recall.
-         - Due = missed_counter_id == counter_id AND status == MISSED
+         - Due = MISSED at this counter, unlocked by an actual service completion.
          - POLICY (SINGLE missed token): recall that token next.
-         - POLICY (MULTIPLE missed tokens): OPEN — see comments below.
+         - Multiple-missed scheduling remains unapproved; new second misses are blocked.
       2. If no recall due, call the next WAITING token (by sort_key ASC).
       3. Update counter.current_token_id and counter.served_today.
 
@@ -278,41 +278,37 @@ async def complete_and_next(
             current.status = "COMPLETED"
             current.completed_at = now
             counter.served_today += 1
+            # Only an actual completion unlocks pending recalls. Persist even
+            # while paused so resume/restart cannot lose the opportunity.
+            await db.execute(update(Token).where(
+                Token.missed_counter_id == counter_id,
+                Token.status == "MISSED",
+            ).values(recall_ready=True))
             _log(db, "Token", current.id, "COMPLETED", {}, actor_id=actor_id)
 
     counter.current_token_id = None
     counter.serving_started_at = None
 
-    # --- Step 2: Check for due recalls ---
-    # APPROVED POLICY: Recall missed tokens assigned to THIS counter.
-    #
-    # OPEN QUESTION — Multiple missed tokens:
-    # If more than one MISSED token is due (missed_counter_id == this counter),
-    # we currently recall ALL of them in FIFO order (by missed_at).
-    # Proposed behaviour:
-    #   a) Recall first due missed token → call it (status → CALLED).
-    #   b) If it becomes SERVING, the next recall triggers after that service completes.
-    #   c) If absent (Mark Absent Again) → increment recall_attempts, then immediately
-    #      recall next due missed token (if any), BEFORE calling a normal waiting customer.
-    #   d) Only after all due missed tokens have had one recall attempt each does the
-    #      counter call the next normal waiting customer.
-    # *** This multi-missed behaviour is NOT yet approved — flagged for review. ***
-    #
-    # For now: recall the OLDEST due missed token (FIFO by missed_at), one at a time.
+    # Pausing preserves current service, but completion must not assign anyone new.
+    if counter.status != 'ACTIVE':
+        return None
 
+    # Select an eligible recall only after an intervening service completion.
     missed_res = await db.execute(
         select(Token)
         .where(
             Token.missed_counter_id == counter_id,
             Token.status == "MISSED",
+            Token.recall_ready.is_(True),
         )
-        .order_by(Token.missed_at.asc())
+        .order_by(Token.missed_at.asc(), Token.id.asc())
         .limit(1)
         .with_for_update(skip_locked=True)
     )
     recall_token = missed_res.scalars().first()
 
     if recall_token:
+        recall_token.recall_ready = False
         recall_token.status = "CALLED"
         recall_token.called_at = now
         counter.current_token_id = recall_token.id
@@ -334,6 +330,8 @@ async def _call_next_waiting(
     now: datetime,
 ) -> Optional[Token]:
     """Pull the next WAITING token from queue by sort_key and mark it CALLED."""
+    if counter.status != 'ACTIVE':
+        return None
     next_res = await db.execute(
         select(Token)
         .where(
@@ -428,7 +426,19 @@ async def mark_missed(
     if not token or token.status != "CALLED":
         raise ValueError(f"Token is {token.status if token else 'missing'}, not CALLED")
 
+    if token.missed_counter_id is not None:
+        raise ValueError("This is a recall; use absent-again")
+
+    # Only the single-missed sequence is approved. Do not silently choose a
+    # scheduler for multiple missed customers while the policy is undecided.
+    pending = (await db.execute(select(Token.id).where(
+        Token.missed_counter_id == counter_id, Token.status == "MISSED",
+    ).limit(1))).scalar_one_or_none()
+    if pending is not None:
+        raise ValueError("Another customer is already awaiting recall. Multiple-missed handling is not enabled yet.")
+
     now = _now()
+    token.recall_ready = False
     token.status = "MISSED"
     token.missed_at = now
     token.missed_counter_id = counter_id
@@ -460,7 +470,7 @@ async def mark_absent_again(
     Staff confirms customer absent during a recall (token is CALLED, was MISSED).
     Increments recall_attempts.
     If recall_attempts reaches MAX_RECALL_ATTEMPTS → CLOSED_MISSED.
-    Else → back to MISSED, check for another due missed token immediately.
+    Else → back to MISSED until another actual service completion.
     """
     ctr_res = await db.execute(
         select(Counter).where(Counter.id == counter_id).with_for_update()
@@ -481,18 +491,19 @@ async def mark_absent_again(
         raise ValueError("Token was not previously missed — use mark_missed instead")
 
     now = _now()
+    token.recall_ready = False
     token.recall_attempts += 1
 
     if token.recall_attempts >= MAX_RECALL_ATTEMPTS:
         token.status = "CLOSED_MISSED"
-        token.completed_at = now
+        # CLOSED_MISSED is not a completed service.
         _log(db, "Token", token.id, "CLOSED_MISSED", {
             "reason": "Two recall opportunities missed",
             "counter_id": counter_id,
         }, actor_id=actor_id)
     else:
         token.status = "MISSED"
-        token.missed_at = now  # refresh timestamp for next recall ordering
+        # Preserve original missed_at for FIFO ordering.
         _log(db, "Token", token.id, "RECALL_MISSED", {
             "recall_attempts": token.recall_attempts,
             "remaining": MAX_RECALL_ATTEMPTS - token.recall_attempts,
@@ -501,28 +512,5 @@ async def mark_absent_again(
     counter.current_token_id = None
     counter.serving_started_at = None
 
-    # Check for another due missed token before calling next normal customer
-    # (OPEN POLICY for multiple missed tokens — same FIFO approach as complete_and_next)
-    missed_res = await db.execute(
-        select(Token)
-        .where(
-            Token.missed_counter_id == counter_id,
-            Token.status == "MISSED",
-        )
-        .order_by(Token.missed_at.asc())
-        .limit(1)
-        .with_for_update(skip_locked=True)
-    )
-    next_recall = missed_res.scalars().first()
-
-    if next_recall:
-        next_recall.status = "CALLED"
-        next_recall.called_at = now
-        counter.current_token_id = next_recall.id
-        _log(db, "Token", next_recall.id, "RECALL_CALLED", {
-            "recall_attempt_number": next_recall.recall_attempts + 1,
-        }, actor_id=actor_id)
-        return next_recall
-
-    # No more recalls due — call next normal waiting customer
+    # An absence is not a completion and cannot unlock another recall.
     return await _call_next_waiting(db, counter, actor_id, now)

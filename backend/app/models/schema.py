@@ -52,6 +52,7 @@ class IdempotencyRecord(Base):
     device_id = Column(String, nullable=False, index=True)
     hardware_request_id = Column(String, nullable=False, index=True)
     response_payload = Column(JSONB, nullable=False)
+    request_hash = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
 
     __table_args__ = (
@@ -152,6 +153,7 @@ class Token(Base):
 
     # Recall tracking
     recall_attempts = Column(Integer, nullable=False, default=0)
+    recall_ready = Column(Boolean, nullable=False, default=False, server_default='false')
     missed_at = Column(DateTime(timezone=True), nullable=True)
     missed_counter_id = Column(String, ForeignKey("counters.id"), nullable=True)
 
