@@ -4,6 +4,9 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Shared-domain deployment: customer modules/assets stay under the QR route.
+  base: '/qr/',
+  build: { outDir: 'dist/qr' },
   plugins: [react()],
   resolve: {
     alias: {

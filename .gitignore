@@ -25,6 +25,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Runtime and local cache
+.vercel/
+**/.vercel/
 *.local
 .eslintcache
 *.tsbuildinfo
@@ -43,3 +45,5 @@ lerna-debug.log*
 .DS_Store
 Thumbs.db
 ehthumbs.db
+
+.vercel

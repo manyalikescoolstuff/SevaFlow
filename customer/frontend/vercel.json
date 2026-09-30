@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "redirects": [{ "source": "/", "destination": "/qr", "permanent": false }],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://seva-flow-jet.vercel.app/api/$1" },
+    { "source": "/qr", "destination": "/qr/index.html" },
+    { "source": "/qr/", "destination": "/qr/index.html" }
+  ]
+}
