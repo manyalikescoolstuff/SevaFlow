@@ -19,13 +19,24 @@ export function LivePredictionsPage() {
   const [data, setData] = useState<Forecast | null>(null);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [demoMode, setDemoMode] = useState(false);
+  
+  const toggleDemoMode = () => {
+    setDemoMode(prev => !prev);
+    setData(null);
+    setError('');
+    setRefresh(n => n + 1);
+  };
+  
+  const endpoint = demoMode ? '/admin/demo-predictions' : '/admin/predictions';
+
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
     let timer: number;
     const poll = async () => {
       try {
-        const result = await staffRequest<Forecast>('/admin/predictions', session);
+        const result = await staffRequest<Forecast>(endpoint, session);
         if (!cancelled) { setData(result); setError(''); }
       } catch (e) {
         if (!cancelled) {
@@ -37,10 +48,26 @@ export function LivePredictionsPage() {
     };
     void poll();
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [session, logout, refresh]);
+  }, [session, logout, refresh, endpoint]);
   const max = Math.max(1, ...(data?.hourly.map(h => h.expected_registrations) || []));
   return <div className="admin-predictions">
-    <header className="admin-predictions__header"><div><h1 className="admin-predictions__title">Predictions</h1><p>Next-day demand · provisional recorded-day baseline</p></div><div className="analytics-date-controls"><button onClick={() => setRefresh(n => n + 1)}>Refresh forecast</button></div></header>
+    <header className="admin-predictions__header">
+      <div>
+        <h1 className="admin-predictions__title">Predictions</h1>
+        <p>Next-day demand · provisional recorded-day baseline</p>
+      </div>
+      <div className="analytics-date-controls">
+        <button className="live-secondary" onClick={toggleDemoMode}>
+          {demoMode ? 'Switch to live data' : 'Try Demo Mode'}
+        </button>
+        <button onClick={() => setRefresh(n => n + 1)}>Refresh forecast</button>
+      </div>
+    </header>
+    {demoMode && (
+      <div className="demo-mode-banner" role="status" style={{ marginBottom: '1rem', background: 'var(--color-warning-bg, #fef3c7)', color: 'var(--color-warning, #d97706)', padding: '1rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--color-warning-border, #fde68a)' }}>
+        <strong>Demo Mode Active</strong> — Sample data — changes do not affect live operations.
+      </div>
+    )}
     {error && <p role="alert" className="admin-demo-notice">{error}{data && ' Showing the last successful forecast response.'}</p>}
     {!data ? <p role="status">{error ? 'Forecast unavailable. Retry with Refresh forecast.' : 'Checking recorded history…'}</p> : <>
       <p role="status">For {data.forecast_date} · {data.timezone} · {error ? 'Update interrupted' : 'Refreshes every minute'}</p>

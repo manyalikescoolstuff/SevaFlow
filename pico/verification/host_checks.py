@@ -151,6 +151,38 @@ with tempfile.TemporaryDirectory() as directory:
     finally:
         os.chdir(previous)
 
+# Exercise the actual display synchronization with simulated HTTP/Wi-Fi.
+ns['network'] = SimpleNamespace(STA_IF=0, WLAN=lambda _: SimpleNamespace(
+    active=lambda _: None, isconnected=lambda: True))
+def get_display(url, **kwargs):
+    assert url.endswith('/hardware/counters/ctr-02/display')
+    assert kwargs['headers']['X-Hardware-Secret'] == ns['HARDWARE_SECRET']
+    assert kwargs['timeout'] == 3
+    response = responses.pop(0)
+    if isinstance(response, Exception): raise response
+    return response
+ns['requests'].get = get_display
+for token, status in [('B024', 'CALLED'), ('B034', 'SERVING'), (None, None), ('B100', 'CALLED')]:
+    response = Response({'counter_id': 'ctr-02', 'display_number': token, 'token_status': status}, 200)
+    responses.append(response)
+    ns['sync_serving']()
+    expected = ((ns['BLANK'], ns['BLANK']) if token is None else
+                (ns['DASH'], ns['DASH']) if token == 'B100' else
+                (ns['PATTERNS'][int(token[1:]) // 10], ns['PATTERNS'][int(token[1:]) % 10]))
+    assert ns['display_frame'] == expected
+    assert response.closed
+for response in [Response({}, 401), Response({'counter_id': 'wrong'}, 200), OSError('timeout')]:
+    ns['set_serving']('B024')
+    responses.append(response)
+    must_raise(ns['sync_serving'], (OSError, ValueError))
+    assert ns['display_frame'] == (ns['BLANK'], ns['BLANK'])
+    if isinstance(response, Response): assert response.closed
+ns['handle_command']('SERVE B024')
+assert ns['display_auto'] is False
+ns['handle_command']('AUTO')
+assert ns['display_auto'] is True
+print('PASS: counter display sync, blank/overflow, error clearing, response cleanup and manual/AUTO modes')
+
 # Check the real upstream uQR matrix, without running on a Pico.
 reference = Path(__file__).with_name('uQR_reference.py')
 if reference.exists():

@@ -15,6 +15,9 @@ router.include_router(allocations_router)
 from app.api.demo_allocations import router as demo_allocations_router
 router.include_router(demo_allocations_router)
 
+from app.api.demo_predictions import router as demo_predictions_router
+router.include_router(demo_predictions_router)
+
 CENTRE_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 
 

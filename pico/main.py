@@ -127,6 +127,9 @@ def sync_serving():
         if token is not None and data['token_status'] not in ('CALLED', 'SERVING'):
             raise ValueError('Invalid display token state')
         set_serving(token)
+    except Exception:
+        set_serving(None)
+        raise
     finally:
         if response is not None:
             response.close()
@@ -437,7 +440,6 @@ def main():
                     sync_serving()
                 except Exception as exc:
                     # Never keep an old customer's number on a disconnected display.
-                    set_serving(None)
                     print('Display sync failed:', type(exc).__name__)
                 last_display_poll = ticks_ms()
                 # Ignore presses during blocking HTTP; require a fresh stable release.
