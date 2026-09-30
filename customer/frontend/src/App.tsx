@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { WelcomePage } from './pages/WelcomePage';
 import { RegistrationPage } from './pages/RegistrationPage';
 import { TrackingPage } from './pages/TrackingPage';
+import { useQueueUpdates } from './useQueueUpdates';
 import { MockApp } from './MockApp';
 import { getServiceDefinition } from './config/services';
 import { localizeService } from './config/serviceTranslations';
@@ -13,8 +14,6 @@ function CustomerApp() {
   const { t, language } = useLanguage();
   const [url, setUrl] = useState(() => new URL(location.href));
   const [claim, setClaim] = useState<Claim | null>(null);
-  const [tracking, setTracking] = useState<Tracking | null>(null);
-  const [stale, setStale] = useState(false);
   const [view, setView] = useState<'welcome' | 'details'>('welcome');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -38,7 +37,7 @@ function CustomerApp() {
   };
   useEffect(() => {
     let cancelled = false;
-    setLoading(true); setError(null); setClaim(null); setTracking(null); setExpired(false);
+    setLoading(true); setError(null); setClaim(null); setExpired(false);
     const initialize = async () => {
       if (!service || !number) throw new ApiError(400, 'Scan a valid kiosk QR code with a service and token number.');
       const reservation = url.searchParams.get('reservation');
@@ -78,20 +77,10 @@ function CustomerApp() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [url, attempt]);
-  useEffect(() => {
-    if (!claim?.registered_at) return;
-    let cancelled = false;
-    let timer: number;
-    const poll = async () => {
-      try {
-        const data = await api<Tracking>(`/token/${claim.token_id}/status`, undefined, await hash(saved.current!.tracking));
-        if (!cancelled) { setTracking(data); setStale(false); }
-      } catch { if (!cancelled) setStale(true); }
-      if (!cancelled) timer = window.setTimeout(poll, 4000);
-    };
-    void poll();
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [claim?.token_id, claim?.registered_at]);
+  const loadTracking = useCallback(async () => api<Tracking>(
+    `/token/${claim!.token_id}/status`, undefined, await hash(saved.current!.tracking),
+  ), [claim?.token_id]);
+  const { tracking, stale, secondsRemaining } = useQueueUpdates(claim?.registered_at ? loadTracking : null);
   const onExpired = useCallback(() => setExpired(true), []);
   const run = async (action: () => Promise<void>) => {
     if (operation.current) return;
@@ -120,7 +109,7 @@ function CustomerApp() {
   return <main className="portal-wrapper"><Header />
     {error && <div className="error-notice" role="alert"><p>{errorText}</p>{!busy && <button className="secondary-button" onClick={() => setAttempt(n => n + 1)}>{t('Retry / recover token', 'पुनः प्रयास / टोकन वापस पाएँ')}</button>}</div>}
     {loading ? <section className="glass-panel message-card" role="status">{t('Verifying your reservation…', 'आपके आरक्षण की जाँच हो रही है…')}</section>
-      : claim?.registered_at ? <TrackingPage claim={claim} tracking={tracking} stale={stale} serviceLabel={serviceLabel} />
+      : claim?.registered_at ? <TrackingPage claim={claim} tracking={tracking} stale={stale} secondsRemaining={secondsRemaining} serviceLabel={serviceLabel} />
       : claim?.status === 'CANCELLED' ? <section className="glass-panel message-card"><h2>{t('Reservation declined', 'आरक्षण अस्वीकार किया गया')}</h2><p>{t('You can request a new token at the kiosk.', 'आप कियोस्क से नया टोकन ले सकते हैं।')}</p></section>
       : expired || claim?.status === 'EXPIRED' ? <section className="glass-panel message-card"><h2>{t('Registration window ended', 'पंजीकरण का समय समाप्त')}</h2><p>{t('Request a new token at the kiosk. If you just submitted your details, recover your token to check the result.', 'कियोस्क से नया टोकन लें। यदि आपने अभी जानकारी भेजी है, तो परिणाम देखने के लिए टोकन वापस पाएँ।')}</p><button className="secondary-button" onClick={() => setAttempt(n => n + 1)}>{t('Recover token', 'टोकन वापस पाएँ')}</button></section>
       : claim && localizedService && view === 'details' ? <RegistrationPage claim={claim} serviceLabel={serviceLabel} offset={offset} busy={busy} onBack={() => { persist({ ...saved.current!, accepted: false }); setView('welcome'); }} onExpired={onExpired} onSubmit={register} />

@@ -6,12 +6,14 @@ interface DetailsPlaceholderPageProps {
   reservation: ReservationData;
   serviceDef: ServiceDefinition;
   onBack: () => void;
+  onRegistered: () => void;
 }
 
 export const DetailsPlaceholderPage: React.FC<DetailsPlaceholderPageProps> = ({
   reservation,
   serviceDef,
   onBack,
+  onRegistered,
 }) => {
   const [details, setDetails] = useState({ name: '', phone: '', email: '' });
   const [submitted, setSubmitted] = useState(false);
@@ -77,6 +79,7 @@ export const DetailsPlaceholderPage: React.FC<DetailsPlaceholderPageProps> = ({
           onSubmit={(event) => {
             event.preventDefault();
             setSubmitted(true);
+            onRegistered();
           }}
           style={{ textAlign: 'left', marginBottom: '1.25rem' }}
         >

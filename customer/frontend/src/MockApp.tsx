@@ -17,11 +17,11 @@ import { Header } from './components/Header';
 import { WelcomePage } from './pages/WelcomePage';
 import { DetailsPlaceholderPage } from './pages/DetailsPlaceholderPage';
 import { RejectedPage } from './pages/RejectedPage';
-import { TrackingPlaceholderPage } from './pages/TrackingPlaceholderPage';
+import { PreviewTrackingPage } from './pages/PreviewTrackingPage';
 import { ErrorStatePage } from './pages/ErrorStatePage';
 import { DevStateSwitcher } from './components/DevStateSwitcher';
 
-type ViewMode = 'WELCOME' | 'DETAILS_PLACEHOLDER' | 'REJECTED';
+type ViewMode = 'WELCOME' | 'DETAILS_PLACEHOLDER' | 'REJECTED' | 'TRACKING';
 
 export const MockApp: React.FC = () => {
   // Query parameters state
@@ -97,6 +97,7 @@ export const MockApp: React.FC = () => {
     const url = new URL(window.location.href);
     url.pathname = '/qr';
     url.searchParams.delete('cat');
+    url.searchParams.delete('stage');
     url.searchParams.delete('qNo');
 
     if (newCat) url.searchParams.set('cat', newCat);
@@ -110,6 +111,9 @@ export const MockApp: React.FC = () => {
 
   // Handle Dev Preview State change
   const handleSelectPreviewState = (state: MockPreviewState | null) => {
+    const next = new URL(location.href);
+    next.searchParams.delete('stage');
+    history.replaceState({}, '', next);
     setActivePreviewOverride(state);
     setDevPreviewState(state);
     executeValidation(catParam, qNoParam, state);
@@ -117,6 +121,9 @@ export const MockApp: React.FC = () => {
 
   // Reset Mock Data
   const handleResetData = () => {
+    const next = new URL(location.href);
+    next.searchParams.delete('stage');
+    history.replaceState({}, '', next);
     resetMockData();
     setActivePreviewOverride(null);
     setDevPreviewState(null);
@@ -165,6 +172,10 @@ export const MockApp: React.FC = () => {
 
   // Render Page Content based on state
   const renderContent = () => {
+    if (new URLSearchParams(location.search).get('stage') === 'tracking' || viewMode === 'TRACKING') {
+      const serviceDef = getServiceDefinition(catParam);
+      if (serviceDef) return <PreviewTrackingPage number={qNoParam || 'A024'} serviceLabel={serviceDef.label} />;
+    }
     // 1. Loading State
     if (isLoading || activePreviewOverride === 'loading') {
       return (
@@ -215,9 +226,9 @@ export const MockApp: React.FC = () => {
     // 3. Already Registered State
     if (reservation.is_registered || reservation.status === 'WAITING') {
       return (
-        <TrackingPlaceholderPage
-          reservation={reservation}
-          serviceDef={serviceDef}
+        <PreviewTrackingPage
+          number={reservation.display_number}
+          serviceLabel={serviceDef.label}
         />
       );
     }
@@ -239,6 +250,12 @@ export const MockApp: React.FC = () => {
           reservation={reservation}
           serviceDef={serviceDef}
           onBack={() => setViewMode('WELCOME')}
+          onRegistered={() => {
+            const next = new URL(location.href);
+            next.searchParams.set('stage', 'tracking');
+            history.replaceState({}, '', next);
+            setViewMode('TRACKING');
+          }}
         />
       );
     }
