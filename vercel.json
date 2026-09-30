@@ -1,0 +1,32 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "backend": {
+      "root": "backend",
+      "framework": "fastapi",
+      "entrypoint": "app.main:app"
+    },
+    "customer": {
+      "root": "customer/frontend",
+      "framework": "vite",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist",
+      "rewrites": [
+        { "source": "/qr", "destination": "/qr/index.html" },
+        { "source": "/qr/", "destination": "/qr/index.html" }
+      ]
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite",
+      "buildCommand": "npm run build",
+      "rewrites": [{ "source": "/(admin|staff)(/.*)?", "destination": "/index.html" }]
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/qr", "destination": { "service": "customer" } },
+    { "source": "/qr/(.*)", "destination": { "service": "customer" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
+  ]
+}

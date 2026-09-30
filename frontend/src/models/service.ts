@@ -1,5 +1,5 @@
 /**
- * A service offered at the service centre (e.g. "Aadhaar Update", "PAN Card").
+ * A service offered at the service centre (e.g. "KYC", "New account").
  * Each counter is assigned exactly one service at a time.
  * Each queue corresponds to exactly one service.
  */

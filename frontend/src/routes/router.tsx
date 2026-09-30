@@ -7,11 +7,14 @@ import { StaffDashboardPage } from '@/pages/staff/StaffDashboard';
 import { LiveStaffPage } from '@/pages/staff/LiveStaff';
 
 import { AdminLayout } from '@/pages/admin/AdminLayout';
+import { AdminAccess, LiveAdminPage, AdminDemoNotice } from '@/pages/admin/LiveAdmin';
 import { OverviewPage } from '@/pages/admin/Overview';
 import { QueuesPage } from '@/pages/admin/Queues';
 import { CountersPage } from '@/pages/admin/Counters';
 import { AnalyticsPage } from '@/pages/admin/Analytics';
+import { LiveAnalyticsPage } from '@/pages/admin/LiveAnalytics';
 import { PredictionsPage } from '@/pages/admin/Predictions';
+import { LivePredictionsPage } from '@/pages/admin/LivePredictions';
 
 /**
  * Application route definitions.
@@ -43,13 +46,18 @@ export const router = createBrowserRouter([
   },
   {
     path: '/admin',
-    element: <AdminLayout />,
+    element: <AdminAccess><AdminLayout /></AdminAccess>,
     children: [
-      { index: true, element: <OverviewPage /> },
-      { path: 'queues', element: <QueuesPage /> },
-      { path: 'counters', element: <CountersPage /> },
-      { path: 'analytics', element: <AnalyticsPage /> },
-      { path: 'predictions', element: <PredictionsPage /> },
+      { index: true, element: <LiveAdminPage view="Overview" /> },
+      { path: 'queues', element: <LiveAdminPage view="Queues" /> },
+      { path: 'counters', element: <LiveAdminPage view="Counters" /> },
+      { path: 'analytics', element: <LiveAnalyticsPage /> },
+      { path: 'demo/analytics', element: <AdminDemoNotice><AnalyticsPage /></AdminDemoNotice> },
+      { path: 'predictions', element: <LivePredictionsPage /> },
+      { path: 'demo/predictions', element: <AdminDemoNotice><PredictionsPage /></AdminDemoNotice> },
+      { path: 'demo/overview', element: <AdminDemoNotice><OverviewPage /></AdminDemoNotice> },
+      { path: 'demo/queues', element: <AdminDemoNotice><QueuesPage /></AdminDemoNotice> },
+      { path: 'demo/counters', element: <AdminDemoNotice><CountersPage /></AdminDemoNotice> },
     ],
   },
 ]);

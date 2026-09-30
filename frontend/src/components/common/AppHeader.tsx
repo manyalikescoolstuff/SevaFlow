@@ -4,9 +4,10 @@ import './AppHeader.css';
 interface AppHeaderProps {
   /** e.g. "Staff · Counter 01" or "Administrator" */
   contextLabel: string;
+  onExit?: () => void;
 }
 
-export function AppHeader({ contextLabel }: AppHeaderProps) {
+export function AppHeader({ contextLabel, onExit }: AppHeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -22,9 +23,9 @@ export function AppHeader({ contextLabel }: AppHeaderProps) {
       <div className="app-header__right">
         <button
           className="app-header__exit-btn"
-          onClick={() => navigate('/')}
+          onClick={onExit || (() => navigate('/'))}
         >
-          ← Switch Role
+          {onExit ? 'Sign out' : '← Switch Role'}
         </button>
       </div>
     </header>

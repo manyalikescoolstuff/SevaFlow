@@ -21,22 +21,20 @@ async def seed_db(db: AsyncSession):
 
     # --- Services ---
     services = [
-        Service(id="svc-aadhaar",  name="Aadhaar Update",         expected_duration_sec=300),
-        Service(id="svc-pan",      name="PAN Card",                expected_duration_sec=240),
-        Service(id="svc-income",   name="Income Certificate",      expected_duration_sec=360),
-        Service(id="svc-domicile", name="Domicile Certificate",    expected_duration_sec=420),
-        Service(id="svc-land",     name="Land Records",            expected_duration_sec=480),
+        Service(id="svc-aadhaar", name="KYC",               expected_duration_sec=300),
+        Service(id="svc-pan",     name="New account",       expected_duration_sec=240),
+        Service(id="svc-income",  name="Cash Transactions", expected_duration_sec=360),
+        Service(id="svc-land",    name="Help desk",         expected_duration_sec=480),
     ]
     db.add_all(services)
     await db.flush()
 
     # --- Queues (one per service) ---
     queues = [
-        Queue(id="q-aadhaar",  service_id="svc-aadhaar"),
-        Queue(id="q-pan",      service_id="svc-pan"),
-        Queue(id="q-income",   service_id="svc-income"),
-        Queue(id="q-domicile", service_id="svc-domicile"),
-        Queue(id="q-land",     service_id="svc-land"),
+        Queue(id="q-aadhaar", service_id="svc-aadhaar"),
+        Queue(id="q-pan",     service_id="svc-pan"),
+        Queue(id="q-income",  service_id="svc-income"),
+        Queue(id="q-land",    service_id="svc-land"),
     ]
     db.add_all(queues)
     await db.flush()
@@ -59,12 +57,12 @@ async def seed_db(db: AsyncSession):
 
     # --- Counters ---
     counters = [
-        Counter(id="ctr-01", label="Counter 01", service_id="svc-aadhaar",  queue_id="q-aadhaar",  status="ACTIVE", staff_id="stf-01"),
-        Counter(id="ctr-02", label="Counter 02", service_id="svc-pan",      queue_id="q-pan",      status="ACTIVE", staff_id="stf-02"),
-        Counter(id="ctr-03", label="Counter 03", service_id="svc-income",   queue_id="q-income",   status="ACTIVE", staff_id="stf-03"),
-        Counter(id="ctr-04", label="Counter 04", service_id="svc-domicile", queue_id="q-domicile", status="ACTIVE", staff_id="stf-04"),
-        Counter(id="ctr-05", label="Counter 05", service_id="svc-land",     queue_id="q-land",     status="ACTIVE", staff_id="stf-05"),
-        Counter(id="ctr-06", label="Counter 06", service_id="svc-aadhaar",  queue_id="q-aadhaar",  status="PAUSED", staff_id="stf-06"),
+        Counter(id="ctr-01", label="Counter 01", service_id="svc-aadhaar", queue_id="q-aadhaar", status="ACTIVE", staff_id="stf-01"),
+        Counter(id="ctr-02", label="Counter 02", service_id="svc-pan",    queue_id="q-pan",     status="ACTIVE", staff_id="stf-02"),
+        Counter(id="ctr-03", label="Counter 03", service_id="svc-income",  queue_id="q-income",  status="ACTIVE", staff_id="stf-03"),
+        Counter(id="ctr-04", label="Counter 04", service_id="svc-income",  queue_id="q-income",  status="ACTIVE", staff_id="stf-04"),
+        Counter(id="ctr-05", label="Counter 05", service_id="svc-land",    queue_id="q-land",    status="ACTIVE", staff_id="stf-05"),
+        Counter(id="ctr-06", label="Counter 06", service_id="svc-aadhaar", queue_id="q-aadhaar", status="PAUSED", staff_id="stf-06"),
     ]
     db.add_all(counters)
 

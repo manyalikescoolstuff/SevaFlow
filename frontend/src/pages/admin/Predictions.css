@@ -746,3 +746,6 @@
   }
 }
 
+
+/* Keep unavailable/readiness values readable in the live forecast cards. */
+.admin-predictions .admin-metric-card__value { font-size:clamp(20px,2vw,28px); white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }

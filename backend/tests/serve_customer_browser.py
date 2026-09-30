@@ -19,6 +19,7 @@ from app.core.security import hash_password
 from app.api.customer import router
 from app.api.staff import router as staff_router
 from app.api.workstation import router as workstation_router
+from app.api.admin import router as admin_router
 from app.services.queue_manager import _now
 
 schema = 'test_customer_browser_' + uuid.uuid4().hex
@@ -40,6 +41,8 @@ async def lifespan(app):
             await db.flush()
             db.add(Staff(id='browser-staff', name='Test Operator', username='browser-staff',
                          hashed_password=hash_password('staff-browser-test'), role='STAFF'))
+            db.add(Staff(id='browser-admin', name='Test Administrator', username='browser-admin',
+                         hashed_password=hash_password('admin-browser-test'), role='ADMIN'))
             await db.flush()
             db.add(Counter(id='test-counter', label='Test counter', service_id='svc-aadhaar', queue_id='test-queue', staff_id='browser-staff'))
             for n in (24,25):
@@ -60,6 +63,7 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(router, prefix='/api/v1')
 app.include_router(staff_router, prefix='/api/v1')
 app.include_router(workstation_router, prefix='/api/v1')
+app.include_router(admin_router, prefix='/api/v1')
 async def database():
     async with sessions() as db:
         try:

@@ -24,27 +24,22 @@ import type {
 export const SEED_SERVICES: Record<string, Service> = {
   'svc-aadhaar': {
     id: 'svc-aadhaar',
-    name: 'Aadhaar Update',
+    name: 'KYC',
     expectedDurationSec: 300,
   },
   'svc-pan': {
     id: 'svc-pan',
-    name: 'PAN Card',
+    name: 'New account',
     expectedDurationSec: 240,
   },
   'svc-income': {
     id: 'svc-income',
-    name: 'Income Certificate',
+    name: 'Cash Transactions',
     expectedDurationSec: 360,
-  },
-  'svc-domicile': {
-    id: 'svc-domicile',
-    name: 'Domicile Certificate',
-    expectedDurationSec: 420,
   },
   'svc-land': {
     id: 'svc-land',
-    name: 'Land Records',
+    name: 'Help desk',
     expectedDurationSec: 480,
   },
 };
@@ -68,7 +63,7 @@ function makeRecentIso(secondsAgo: number): string {
 }
 
 export const SEED_TOKENS: Record<string, Token> = {
-  // ---- Aadhaar queue ----
+  // ---- KYC queue ----
   'tok-000': {
     id: 'tok-000',
     displayNumber: 'D-040',
@@ -130,7 +125,7 @@ export const SEED_TOKENS: Record<string, Token> = {
     issuedAt: makeIso(18),
   },
 
-  // ---- PAN queue ----
+  // ---- New account queue ----
   'tok-007': {
     id: 'tok-007',
     displayNumber: 'P-011',
@@ -155,7 +150,7 @@ export const SEED_TOKENS: Record<string, Token> = {
     issuedAt: makeIso(16),
   },
 
-  // ---- Income Certificate queue ----
+  // ---- Cash Transactions queue ----
   'tok-010': {
     id: 'tok-010',
     displayNumber: 'I-005',
@@ -169,8 +164,10 @@ export const SEED_TOKENS: Record<string, Token> = {
     id: 'tok-011',
     displayNumber: 'I-006',
     queueId: 'q-income',
-    status: 'WAITING',
+    status: 'SERVING',
     issuedAt: makeIso(11),
+    calledAt: makeRecentIso(30), // 00:30 ago
+    counterId: 'ctr-04',
   },
   'tok-012': {
     id: 'tok-012',
@@ -180,25 +177,7 @@ export const SEED_TOKENS: Record<string, Token> = {
     issuedAt: makeIso(19),
   },
 
-  // ---- Domicile Certificate queue ----
-  'tok-013': {
-    id: 'tok-013',
-    displayNumber: 'DC-003',
-    queueId: 'q-domicile',
-    status: 'SERVING',
-    issuedAt: makeIso(6),
-    calledAt: makeRecentIso(90), // 01:30 ago
-    counterId: 'ctr-04',
-  },
-  'tok-014': {
-    id: 'tok-014',
-    displayNumber: 'DC-004',
-    queueId: 'q-domicile',
-    status: 'WAITING',
-    issuedAt: makeIso(13),
-  },
-
-  // ---- Land Records queue ----
+  // ---- Help desk queue ----
   'tok-015': {
     id: 'tok-015',
     displayNumber: 'L-008',
@@ -250,14 +229,8 @@ export const SEED_QUEUES: Record<string, Queue> = {
   'q-income': {
     id: 'q-income',
     serviceId: 'svc-income',
-    waitingTokenIds: ['tok-011', 'tok-012'],
+    waitingTokenIds: ['tok-012'],
     recentHistory: [1, 2],
-  },
-  'q-domicile': {
-    id: 'q-domicile',
-    serviceId: 'svc-domicile',
-    waitingTokenIds: ['tok-014'],
-    recentHistory: [3, 2],
   },
   'q-land': {
     id: 'q-land',
@@ -313,13 +286,13 @@ export const SEED_COUNTERS: Record<string, Counter> = {
   'ctr-04': {
     id: 'ctr-04',
     label: 'Counter 04',
-    serviceId: 'svc-domicile',
-    queueId: 'q-domicile',
+    serviceId: 'svc-income',
+    queueId: 'q-income',
     status: 'ACTIVE',
     staffId: 'staff-04',
-    currentTokenId: 'tok-013',
+    currentTokenId: 'tok-011',
     servedToday: 1,
-    avgServiceTimeSec: 400,
+    avgServiceTimeSec: 360,
     utilizationRate: 65,
     servingStartedAt: STORE_BOOT_TIME - 30_000, // 30s ago
   },
@@ -370,27 +343,27 @@ export const SEED_STAFF: Record<string, Staff> = {
 /*  NOTE ON V1 PROTOTYPE DATA-MODEL ASSUMPTION:                       */
 /*  For the V1 frontend prototype, we assume:                         */
 /*    1 registered visitor = 1 service request/token                  */
-/*  This is why Total Visitors Today (87) currently equals total      */
-/*  Service Demand (87 tokens issued).                                */
+/*  This is why Total Visitors Today (79) currently equals total      */
+/*  Service Demand (79 tokens issued).                                */
 /*  Later, physical footfall from IR sensors and actual token         */
 /*  generations will be stored and tracked as separate metrics.       */
 /*                                                                    */
 /*  Lifecycle balance preserved:                                      */
-/*    87 requests = 65 completed + 11 waiting + 6 missed + 5 serving  */
+/*    79 requests = 59 completed + 9 waiting + 6 missed + 5 serving   */
 /* ------------------------------------------------------------------ */
 export const SEED_ANALYTICS: AnalyticsSnapshot = {
-  totalFootfallToday: 87,
+  totalFootfallToday: 79,
 
-  totalTokensIssued: 87,
-  totalServedToday: 65,
-  totalWaitingToday: 11,
+  totalTokensIssued: 79,
+  totalServedToday: 59,
+  totalWaitingToday: 9,
   totalMissedToday: 6,
   avgWaitTimeSec: 385,
   avgServiceTimeSec: 321,
   peakHour: 11,
   hourlyFootfall: [
     0, 0, 0, 0, 0, 0, 0, 0,    // 00–07
-    0, 12, 18, 22, 14, 8, 6, 4, // 08–15 (09:00 - 16:00)
+    0, 12, 18, 22, 10, 4, 6, 4, // 08–15 (09:00 - 16:00)
     3, 0, 0, 0, 0, 0, 0, 0,    // 16–23 (16:00 - 17:00 is 3)
   ],
   hourlyAvgWaitSec: [
@@ -402,8 +375,8 @@ export const SEED_ANALYTICS: AnalyticsSnapshot = {
     { hour: 9,  label: '09:00', footfall: 12, avgWaitSec: 300 },
     { hour: 10, label: '10:00', footfall: 18, avgWaitSec: 480 },
     { hour: 11, label: '11:00', footfall: 22, avgWaitSec: 600 },
-    { hour: 12, label: '12:00', footfall: 14, avgWaitSec: 540 },
-    { hour: 13, label: '13:00', footfall: 8,  avgWaitSec: 360 },
+    { hour: 12, label: '12:00', footfall: 10, avgWaitSec: 540 },
+    { hour: 13, label: '13:00', footfall: 4,  avgWaitSec: 360 },
     { hour: 14, label: '14:00', footfall: 6,  avgWaitSec: 300 },
     { hour: 15, label: '15:00', footfall: 4,  avgWaitSec: 240 },
     { hour: 16, label: '16:00', footfall: 3,  avgWaitSec: 180 },
@@ -411,7 +384,7 @@ export const SEED_ANALYTICS: AnalyticsSnapshot = {
   servicePerformance: {
     'svc-aadhaar': {
       serviceId: 'svc-aadhaar',
-      serviceName: 'Aadhaar Update',
+      serviceName: 'KYC',
       tokensGenerated: 30,
       customersServed: 24,
       currentlyWaiting: 3,
@@ -421,7 +394,7 @@ export const SEED_ANALYTICS: AnalyticsSnapshot = {
     },
     'svc-pan': {
       serviceId: 'svc-pan',
-      serviceName: 'PAN Card',
+      serviceName: 'New account',
       tokensGenerated: 21,
       customersServed: 17,
       currentlyWaiting: 2,
@@ -431,27 +404,17 @@ export const SEED_ANALYTICS: AnalyticsSnapshot = {
     },
     'svc-income': {
       serviceId: 'svc-income',
-      serviceName: 'Income Certificate',
+      serviceName: 'Cash Transactions',
       tokensGenerated: 14,
       customersServed: 10,
-      currentlyWaiting: 2,
+      currentlyWaiting: 1,
       avgWaitTimeSec: 420,
       avgServiceTimeSec: 355,
       missedTokens: 1,
     },
-    'svc-domicile': {
-      serviceId: 'svc-domicile',
-      serviceName: 'Domicile Certificate',
-      tokensGenerated: 8,
-      customersServed: 6,
-      currentlyWaiting: 1,
-      avgWaitTimeSec: 360,
-      avgServiceTimeSec: 410,
-      missedTokens: 0,
-    },
     'svc-land': {
       serviceId: 'svc-land',
-      serviceName: 'Land Records',
+      serviceName: 'Help desk',
       tokensGenerated: 14,
       customersServed: 8,
       currentlyWaiting: 3,
@@ -472,15 +435,15 @@ export const SEED_ANALYTICS: AnalyticsSnapshot = {
 /* ------------------------------------------------------------------ */
 export const SEED_PREDICTIONS: PredictionSnapshot = {
   forecastPeriod: '09:00 – 17:00',
-  predictedFootfallToday: 96,
-  totalExpectedRequests: 96,
+  predictedFootfallToday: 87,
+  totalExpectedRequests: 87,
   expectedPeakHour: 11,
   expectedAvgWaitSec: 435,
   hourlyForecast: [
     { hour: 9,  label: '09:00', timeRange: '09:00 – 10:00', predictedFootfall: 13, predictedAvgWaitSec: 320 },
     { hour: 10, label: '10:00', timeRange: '10:00 – 11:00', predictedFootfall: 20, predictedAvgWaitSec: 510 },
     { hour: 11, label: '11:00', timeRange: '11:00 – 12:00', predictedFootfall: 24, predictedAvgWaitSec: 660 },
-    { hour: 12, label: '12:00', timeRange: '12:00 – 13:00', predictedFootfall: 16, predictedAvgWaitSec: 580 },
+    { hour: 12, label: '12:00', timeRange: '12:00 – 13:00', predictedFootfall: 7,  predictedAvgWaitSec: 580 },
     { hour: 13, label: '13:00', timeRange: '13:00 – 14:00', predictedFootfall: 9,  predictedAvgWaitSec: 390 },
     { hour: 14, label: '14:00', timeRange: '14:00 – 15:00', predictedFootfall: 7,  predictedAvgWaitSec: 310 },
     { hour: 15, label: '15:00', timeRange: '15:00 – 16:00', predictedFootfall: 4,  predictedAvgWaitSec: 250 },
@@ -489,7 +452,7 @@ export const SEED_PREDICTIONS: PredictionSnapshot = {
   serviceForecasts: {
     'svc-aadhaar': {
       serviceId: 'svc-aadhaar',
-      serviceName: 'Aadhaar Update',
+      serviceName: 'KYC',
       expectedRequests: 33,
       expectedAvgWaitSec: 420,
       expectedServiceSec: 300,
@@ -498,7 +461,7 @@ export const SEED_PREDICTIONS: PredictionSnapshot = {
     },
     'svc-pan': {
       serviceId: 'svc-pan',
-      serviceName: 'PAN Card',
+      serviceName: 'New account',
       expectedRequests: 23,
       expectedAvgWaitSec: 310,
       expectedServiceSec: 240,
@@ -507,25 +470,16 @@ export const SEED_PREDICTIONS: PredictionSnapshot = {
     },
     'svc-income': {
       serviceId: 'svc-income',
-      serviceName: 'Income Certificate',
+      serviceName: 'Cash Transactions',
       expectedRequests: 15,
       expectedAvgWaitSec: 460,
       expectedServiceSec: 360,
-      availableCounters: 1,
+      availableCounters: 2,
       forecastLoadStatus: 'BUSY',
-    },
-    'svc-domicile': {
-      serviceId: 'svc-domicile',
-      serviceName: 'Domicile Certificate',
-      expectedRequests: 9,
-      expectedAvgWaitSec: 380,
-      expectedServiceSec: 420,
-      availableCounters: 1,
-      forecastLoadStatus: 'NORMAL',
     },
     'svc-land': {
       serviceId: 'svc-land',
-      serviceName: 'Land Records',
+      serviceName: 'Help desk',
       expectedRequests: 16,
       expectedAvgWaitSec: 690,
       expectedServiceSec: 480,
@@ -535,7 +489,7 @@ export const SEED_PREDICTIONS: PredictionSnapshot = {
   },
   predictedHourlyFootfall: [
     0, 0, 0, 0, 0, 0, 0, 0,
-    13, 20, 24, 16, 9, 7, 4, 3,
+    13, 20, 24, 7, 9, 7, 4, 3,
     0, 0, 0, 0, 0, 0, 0, 0,
   ],
   predictedAvgWaitSec: [
@@ -547,7 +501,6 @@ export const SEED_PREDICTIONS: PredictionSnapshot = {
     'svc-aadhaar': 4,
     'svc-pan': 2,
     'svc-income': 3,
-    'svc-domicile': 1,
     'svc-land': 5,
   },
 };

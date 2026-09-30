@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.staff import router as staff_router
 from app.api.workstation import router as workstation_router
 from app.api.customer import router as customer_router
+from app.api.admin import router as admin_router
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models.schema import Staff, Counter, Token
@@ -28,7 +29,7 @@ async def live(contract):
         counter.staff_id = 'operator'
         db.add(Counter(id='other-counter', label='Counter 2', service_id='service', queue_id='queue', staff_id='other'))
     app = FastAPI()
-    for router in (staff_router, workstation_router, customer_router):
+    for router in (staff_router, workstation_router, customer_router, admin_router):
         app.include_router(router, prefix='/api/v1')
     async def database():
         async with sessions() as db:
