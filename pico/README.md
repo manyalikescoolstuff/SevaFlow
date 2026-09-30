@@ -73,9 +73,34 @@ cancel the backend reservation. There is no device-side scan acknowledgement.
 One press requires a stable release before another press is accepted, with a
 five-second cooldown after each network attempt.
 
-The seven-segment serving display still uses your USB commands `SERVE A024`,
-`SERVE 34`, and `CLEAR`. Automatic synchronization with staff calls is not included.
-Numbers above 99 still display `--`, exactly as in the original script.
+The seven-segment display follows **New account / Counter 02 (`ctr-02`)** over
+Wi-Fi. Set `DISPLAY_COUNTER_ID` if your database uses a different counter ID.
+Deploy the backend's authenticated `GET /api/v1/hardware/counters/{id}/display`
+endpoint before uploading this firmware. It returns only the counter ID, token
+number and state, with no customer personal information.
+
+The display shows the counter's CALLED or SERVING token (including recalls),
+so Call Next lights the number and Start Service keeps it visible. A free or
+closed counter clears it. A paused counter retains its current customer number.
+`B024` shows `24`; prefixes cannot be shown on this two-digit display. Numbers
+above 99 show `--`, never a misleading truncated number.
+
+Polling happens about every three seconds after the previous request finishes.
+QR generation and reservation network requests can delay polling; this is not a
+real-time guarantee. The existing 500 Hz hard timer keeps multiplexing independently.
+On a failed poll the number clears; the loop retries automatically. Requests use
+a three-second socket timeout, but DNS and TLS can take longer. Touches during
+display HTTP requests are discarded; release and press again after the request.
+
+USB `SERVE B024`, `SERVE 34`, and `CLEAR` switch to manual display mode for wiring
+tests. `AUTO` resumes backend synchronization. Manual mode is not persisted.
+Keep the existing `sevaflow-state.json` when replacing `main.py`.
+
+Check using the New account staff workstation: Call Next → LED number;
+Start Service → same number; Complete & Next → next number or blank; Missed →
+replacement number or blank; disconnect Wi-Fi → blank after the next failed poll.
+The Pico and staff frontend must use the same backend/database. For a local
+backend, use your computer's LAN IP, not localhost, in `API_BASE_URL`.
 
 ## Retry and stored state
 

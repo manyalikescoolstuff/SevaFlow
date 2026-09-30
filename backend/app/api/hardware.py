@@ -5,13 +5,13 @@ Pico W uses these to reserve tokens and check service availability.
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.schema import IdempotencyRecord, Queue, Service
+from app.models.schema import IdempotencyRecord, Queue, Service, Counter, Token
 from app.schemas.token import TokenReservationRequest, TokenReservationResponse
 from app.services import queue_manager
 
@@ -21,6 +21,21 @@ router = APIRouter(prefix="/hardware", tags=["hardware"])
 def _verify_hardware(x_hardware_secret: str = Header(...)):
     if x_hardware_secret != settings.HARDWARE_SECRET:
         raise HTTPException(status_code=401, detail="Invalid hardware secret")
+
+
+@router.get('/counters/{counter_id}/display', dependencies=[Depends(_verify_hardware)])
+async def counter_display(counter_id: str, response: Response, db: AsyncSession = Depends(get_db)):
+    """One atomic snapshot of the assigned token; never expose customer details."""
+    response.headers['Cache-Control'] = 'no-store'
+    row = (await db.execute(select(Counter.id, Counter.status, Token.display_number, Token.status)
+        .outerjoin(Token, Token.id == Counter.current_token_id)
+        .where(Counter.id == counter_id))).first()
+    if row is None:
+        raise HTTPException(404, 'Counter not found')
+    cid, counter_status, number, token_status = row
+    visible = counter_status != 'CLOSED' and token_status in ('CALLED', 'SERVING')
+    return {'counter_id': cid, 'display_number': number if visible else None,
+            'token_status': token_status if visible else None}
 
 
 @router.post(

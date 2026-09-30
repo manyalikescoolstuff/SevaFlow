@@ -3,7 +3,7 @@
 Copy to Pico as main.py alongside sh1106.py and uQR.py.
 Requires MicroPython requests, ntptime, and Timer(hard=True).
 Edit configuration below. Never delete sevaflow-state.json to reset numbering.
-USB: SERVE A024, SERVE 34, CLEAR. Staff display sync is still manual.
+USB: SERVE A024, SERVE 34, CLEAR, AUTO. Staff display sync uses Wi-Fi.
 """
 from machine import Pin, SoftI2C, Timer, unique_id
 from time import sleep_ms, sleep_us, ticks_ms, ticks_diff
@@ -40,6 +40,11 @@ WIFI_TIMEOUT_MS = 20000
 HTTP_TIMEOUT_SECONDS = 15
 START_NUMBER = 24  # First installation only; existing saved counters take precedence.
 INITIAL_SERVING_TOKEN = None
+# New account counter, as configured in this project's backend seed.
+DISPLAY_COUNTER_ID = 'ctr-02'
+DISPLAY_POLL_MS = 3000
+DISPLAY_TIMEOUT_SECONDS = 3
+display_auto = True
 STATE_FILE = 'sevaflow-state.json'
 
 # Preserve YOUR physical button order and pins, using existing frontend service IDs.
@@ -99,6 +104,32 @@ def set_serving(token):
     else:
         display_frame = (PATTERNS[number // 10], PATTERNS[number % 10])
         print('SERVING:', text)
+
+
+def sync_serving():
+    """Read only. No reservation, queue ordering or customer state mutations."""
+    response = None
+    try:
+        wlan = network.WLAN(network.STA_IF)
+        wlan.active(True)
+        if not wlan.isconnected():
+            wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+            raise OSError('Display WiFi reconnecting')
+        gc.collect()
+        response = requests.get(API_BASE_URL.rstrip('/') + '/hardware/counters/' + DISPLAY_COUNTER_ID + '/display',
+            headers={'X-Hardware-Secret': HARDWARE_SECRET}, timeout=DISPLAY_TIMEOUT_SECONDS)
+        if response.status_code != 200:
+            raise OSError('Display HTTP {}'.format(response.status_code))
+        data = response.json()
+        if data.get('counter_id') != DISPLAY_COUNTER_ID or 'display_number' not in data or 'token_status' not in data:
+            raise ValueError('Invalid display response')
+        token = data['display_number']
+        if token is not None and data['token_status'] not in ('CALLED', 'SERVING'):
+            raise ValueError('Invalid display token state')
+        set_serving(token)
+    finally:
+        if response is not None:
+            response.close()
 
 
 def show_message(oled, *lines):
@@ -300,16 +331,22 @@ def issue_or_recover(oled, state, index):
 
 
 def handle_command(line):
+    global display_auto
     line = line.strip()
     if line.upper() == 'CLEAR':
+        display_auto = False
+        set_serving(None)
+    elif line.upper() == 'AUTO':
+        display_auto = True
         set_serving(None)
     elif line.upper().startswith('SERVE '):
         try:
             set_serving(line[6:])
+            display_auto = False
         except ValueError as exc:
             print('Command error:', exc)
     elif line:
-        print('Commands: SERVE A024, SERVE 34, CLEAR')
+        print('Commands: SERVE A024, SERVE 34, CLEAR, AUTO')
 
 
 def main():
@@ -340,12 +377,13 @@ def main():
         poller = select.poll()
         poller.register(sys.stdin, select.POLLIN)
         command = ''
+        last_display_poll = None
         if state['pending']:
             show_message(oled, 'Pending token', 'Press any key', 'to retry same QR')
             print('Saved pending token: next button retries that same reservation.')
         else:
             show_menu(oled)
-        print('LIVE backend reservations. USB: SERVE A024, SERVE 34, CLEAR')
+        print('LIVE backend reservations. USB: SERVE A024, SERVE 34, CLEAR, AUTO')
         while True:
             now = ticks_ms()
             if poller.poll(0):
@@ -393,6 +431,20 @@ def main():
                         stable = raw[:]
                         changed = [last_attempt] * len(buttons)
                         break
+            if (display_auto and DISPLAY_COUNTER_ID and
+                    (last_display_poll is None or ticks_diff(ticks_ms(), last_display_poll) >= DISPLAY_POLL_MS)):
+                try:
+                    sync_serving()
+                except Exception as exc:
+                    # Never keep an old customer's number on a disconnected display.
+                    set_serving(None)
+                    print('Display sync failed:', type(exc).__name__)
+                last_display_poll = ticks_ms()
+                # Ignore presses during blocking HTTP; require a fresh stable release.
+                armed = False
+                raw = [b.value() for b in buttons]
+                stable = raw[:]
+                changed = [last_display_poll] * len(buttons)
             sleep_ms(5)
     except Exception:
         if oled is not None:
