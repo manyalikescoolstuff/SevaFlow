@@ -23,7 +23,7 @@ export function TrackingPage({ claim, tracking, serviceLabel, stale, secondsRema
         <strong style={{ fontSize: '2rem', color: '#087db8', fontVariantNumeric: 'tabular-nums' }}>
           {secondsRemaining === null ? '…' : `${Math.floor(secondsRemaining / 60).toString().padStart(2, '0')}:${(secondsRemaining % 60).toString().padStart(2, '0')}`}
         </strong>
-        <p className="helper">{t('Automatically refreshes every minute.', 'हर मिनट अपने आप अपडेट होता है।')}</p>
+        <p className="helper">{t('Automatically refreshes every 30 seconds.', 'हर 30 सेकंड में अपने आप अपडेट होता है।')}</p>
       </section>
       <div className="glass-subcard">{tracking?.counter_label ? <><small>{t('Your counter', 'आपका काउंटर')}</small><h2>{tracking.counter_label}</h2></> : <p>{status === 'WAITING' ? t('We’ll show your counter here when you are called.', 'बुलाए जाने पर आपका काउंटर यहाँ दिखेगा।') : labels[status]}</p>}</div>
       {status === 'WAITING' && <p className="helper">{t('Wait times may change as services finish or customers are recalled.', 'सेवा पूरी होने या ग्राहकों को दोबारा बुलाने पर प्रतीक्षा समय बदल सकता है।')}</p>}
