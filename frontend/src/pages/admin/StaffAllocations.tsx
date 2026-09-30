@@ -35,6 +35,18 @@ export function StaffAllocationsPage() {
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   
   const [showForm, setShowForm] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+  const endpoint = demoMode ? '/admin/demo-allocations' : '/admin/allocations';
+  
+  const toggleDemoMode = () => {
+    setDemoMode(prev => !prev);
+    setData(null);
+    setLoadingError('');
+    setActionError('');
+    setNotice('');
+    setShowForm(false);
+    setRequestId(crypto.randomUUID());
+  };
   
   // Filters
   const [filterDate, setFilterDate] = useState('');
@@ -52,7 +64,7 @@ export function StaffAllocationsPage() {
     let timer: number;
     const load = async () => {
       try {
-        const value = await staffRequest<Schedule>('/admin/allocations', session);
+        const value = await staffRequest<Schedule>(endpoint, session);
         if (!cancelled) {
           setData(value);
           setLoadingError('');
@@ -71,7 +83,7 @@ export function StaffAllocationsPage() {
     };
     void load();
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [session, refresh, logout]);
+  }, [session, refresh, logout, endpoint]);
 
   const serverTime = data ? Date.parse(data.server_time) : Date.now();
   
@@ -151,7 +163,7 @@ export function StaffAllocationsPage() {
     
     setBusy(true); setActionError(''); setNotice('');
     try {
-      await staffRequest('/admin/allocations', session, {
+      await staffRequest(endpoint, session, {
         id: requestId, staff_id: values.get('staff'), counter_id: values.get('counter'),
         starts_at: startIso,
         ends_at: endIso,
@@ -174,7 +186,7 @@ export function StaffAllocationsPage() {
     if (!session || busy) return;
     setBusy(true); setActionError(''); setNotice('');
     try {
-      await staffRequest(`/admin/allocations/${id}/${action}`, session, {});
+      await staffRequest(`${endpoint}/${id}/${action}`, session, {});
       setNotice(action === 'release' ? 'Previous assignments restored. Staff can resume paused counters when ready.' : `Allocation ${action === 'apply' ? 'applied' : 'cancelled'}.`);
       setRefresh(n => n + 1);
     } catch (e) { 
@@ -193,11 +205,20 @@ export function StaffAllocationsPage() {
           <p>Schedule staff members to specific counters for time-bound assignments.</p>
         </div>
         <div className="header-actions">
-          <button className="live-primary" onClick={() => setShowForm(!showForm)}>
+          <button className="live-secondary" onClick={toggleDemoMode} disabled={busy}>
+            {demoMode ? 'Switch to live data' : 'Try Demo Mode'}
+          </button>
+          <button className="live-primary" onClick={() => setShowForm(!showForm)} disabled={busy}>
             {showForm ? 'Close form' : 'Schedule allocation'}
           </button>
         </div>
       </header>
+
+      {demoMode && (
+        <div className="demo-mode-banner" role="status">
+          <strong>Demo Mode Active</strong> — Sample data — changes do not affect live operations.
+        </div>
+      )}
 
       <div className="allocations-freshness" role="status">
         <span>
