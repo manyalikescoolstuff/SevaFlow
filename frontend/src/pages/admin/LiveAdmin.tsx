@@ -66,11 +66,18 @@ export function AdminAccess({ children }: { children: ReactNode }) {
       <label>Password<input name="password" type="password" autoComplete="current-password" required disabled={busy}/></label>
       <button className="live-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
     </form></main></div>;
-  return <Context.Provider value={{data, stale, logout, session}}><div className="admin-access"><div className="admin-connection" role="status">
-    <span>{demo ? 'Demo page · sample data' : pathname === '/admin/predictions' ? 'Demand baseline · coverage and limitations shown below' : pathname === '/admin/analytics' ? 'Historical analytics · report status shown below' : stale ? 'Reconnecting — showing last available data' : 'Live · updates every 5 seconds'}{!demo && !['/admin/analytics', '/admin/predictions'].includes(pathname) && data && ` · ${data.report_date} (${data.timezone})`}</span>
-    <button onClick={() => setRefresh(n => n + 1)}>Refresh</button>
-    {error && <span role="alert">{error}</span>}
-  </div>{children}</div></Context.Provider>;
+  return <Context.Provider value={{data, stale, logout, session}}><div className="admin-access">
+    {pathname !== '/admin/staff-allocation' ? (
+      <div className="admin-connection" role="status">
+        <span>{demo ? 'Demo page · sample data' : pathname === '/admin/predictions' ? 'Demand baseline · coverage and limitations shown below' : pathname === '/admin/analytics' ? 'Historical analytics · report status shown below' : stale ? 'Reconnecting — showing last available data' : 'Live · updates every 5 seconds'}{!demo && !['/admin/analytics', '/admin/predictions'].includes(pathname) && data && ` · ${data.report_date} (${data.timezone})`}</span>
+        <button onClick={() => setRefresh(n => n + 1)}>Refresh</button>
+        {error && <span role="alert">{error}</span>}
+      </div>
+    ) : (
+      error ? <div className="admin-connection" role="status"><span role="alert">{error}</span></div> : null
+    )}
+    {children}
+  </div></Context.Provider>;
 }
 
 export function LiveAdminPage({ view }: { view: 'Overview' | 'Queues' | 'Counters' }) {
