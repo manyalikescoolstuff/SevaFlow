@@ -15,6 +15,7 @@ import { AnalyticsPage } from '@/pages/admin/Analytics';
 import { LiveAnalyticsPage } from '@/pages/admin/LiveAnalytics';
 import { PredictionsPage } from '@/pages/admin/Predictions';
 import { LivePredictionsPage } from '@/pages/admin/LivePredictions';
+import { StaffAllocationsPage } from '@/pages/admin/StaffAllocations';
 
 /**
  * Application route definitions.
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { index: true, element: <LiveAdminPage view="Overview" /> },
       { path: 'queues', element: <LiveAdminPage view="Queues" /> },
       { path: 'counters', element: <LiveAdminPage view="Counters" /> },
+      { path: 'staff-allocation', element: <StaffAllocationsPage /> },
       { path: 'analytics', element: <LiveAnalyticsPage /> },
       { path: 'demo/analytics', element: <AdminDemoNotice><AnalyticsPage /></AdminDemoNotice> },
       { path: 'predictions', element: <LivePredictionsPage /> },

@@ -9,6 +9,8 @@ from app.core.deps import require_admin
 from app.models.schema import Service, Queue, Counter, Token, Staff
 
 router = APIRouter(prefix='/admin', tags=['admin'], dependencies=[Depends(require_admin)])
+from app.api.allocations import router as allocations_router
+router.include_router(allocations_router)
 CENTRE_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 
 

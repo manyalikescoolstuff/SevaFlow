@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { to: '/admin',            label: 'Overview' },
   { to: '/admin/queues',     label: 'Queues' },
   { to: '/admin/counters',   label: 'Counters' },
+  { to: '/admin/staff-allocation', label: 'Staff allocation' },
   { to: '/admin/analytics',  label: 'Analytics' },
   { to: '/admin/predictions', label: 'Predictions' },
 ];

@@ -222,6 +222,19 @@ class Counter(Base):
 # Event Log
 # ---------------------------------------------------------------------------
 
+class StaffAllocation(Base):
+    __tablename__ = 'staff_allocations'
+    id = Column(String, primary_key=True, default=_uuid)
+    staff_id = Column(String, ForeignKey('staff.id'), nullable=False)
+    counter_id = Column(String, ForeignKey('counters.id'), nullable=False)
+    starts_at = Column(DateTime(timezone=True), nullable=False)
+    ends_at = Column(DateTime(timezone=True), nullable=False)
+    status = Column(String, nullable=False, default='SCHEDULED')
+    source_counter_id = Column(String, ForeignKey('counters.id'), nullable=True)
+    replaced_staff_id = Column(String, ForeignKey('staff.id'), nullable=True)
+    created_by = Column(String, ForeignKey('staff.id'), nullable=False)
+
+
 class EventLog(Base):
     """
     Immutable audit log for every state transition.
