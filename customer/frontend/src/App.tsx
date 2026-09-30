@@ -4,7 +4,6 @@ import { WelcomePage } from './pages/WelcomePage';
 import { RegistrationPage } from './pages/RegistrationPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { useQueueUpdates } from './useQueueUpdates';
-import { MockApp } from './MockApp';
 import { getServiceDefinition } from './config/services';
 import { localizeService } from './config/serviceTranslations';
 import { useLanguage } from './language';
@@ -117,5 +116,5 @@ function CustomerApp() {
   </main>;
 }
 export function App() {
-  return import.meta.env.DEV && new URLSearchParams(location.search).get('preview') === '1' ? <MockApp /> : <CustomerApp />;
+  return <CustomerApp />;
 }

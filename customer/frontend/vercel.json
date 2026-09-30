@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "redirects": [{ "source": "/", "destination": "/qr", "permanent": false }],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://seva-flow-jet.vercel.app/api/$1" },
+    { "source": "/api/(.*)", "destination": "https://sevaflow-production.up.railway.app/api/$1" },
     { "source": "/qr", "destination": "/qr/index.html" },
     { "source": "/qr/", "destination": "/qr/index.html" }
   ]

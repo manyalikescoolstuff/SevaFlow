@@ -112,7 +112,6 @@ export function LiveStaffPage() {
         <label>Username<input name="username" autoComplete="username" required disabled={busy} /></label>
         <label>Password<input name="password" type="password" autoComplete="current-password" required disabled={busy} /></label>
         <button className="live-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <Link to="/staff/demo">Open demo workstation</Link>
       </form> : <>
         <div className="live-context"><div><h1>{counter?.label || 'Your counter'}</h1><p>{session.name}{counter && ` · ${counter.service_name}`}</p></div><div><span>{stale ? 'Reconnecting…' : 'Live'}</span><button disabled={busy} onClick={() => setRefresh(n => n + 1)}>Refresh</button></div></div>
         {pending && <section className="live-alert"><p>An action is awaiting confirmation. Retrying uses the same request and cannot advance the queue twice.</p>{pending.staff_id === session.staff_id ? <button disabled={busy} onClick={() => void execute(pending)}>Retry saved action</button> : <p>Sign in with the original staff account to resolve this action.</p>}</section>}

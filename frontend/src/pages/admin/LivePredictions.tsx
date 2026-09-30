@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
 import { staffRequest, StaffApiError } from '@/api/staff';
 import { useLiveAdmin } from './LiveAdmin';
 import './Predictions.css';
@@ -14,32 +13,14 @@ interface Forecast {
   services: { service_id: string; service_name: string; recorded_days: number; expected_registrations: number | null }[];
   limitations: string[];
 }
-const mockHours = [0,0,0,0,0,0,0,0,4,10,18,24,20,12,16,18,14,8,0,0,0,0,0,0];
-const mockForecast: Forecast = {
-  forecast_date: 'Sample next day', timezone: 'Asia/Kolkata', generated_at: '', status: 'available', reason: null,
-  method: 'Synthetic example for demonstrating the forecast layout. These figures are not calculated from real customers.',
-  window_start: 'Sample day 1', window_end: 'Sample day 28', recorded_days: 14, required_days: 7,
-  days_without_records: 14, latest_recorded_date: 'Sample day 28', registration_samples: 2016,
-  expected_registrations: 144, historical_daily_min: 110, historical_daily_max: 182,
-  hourly: mockHours.map((expected_registrations, hour) => ({ hour, expected_registrations })),
-  services: [
-    { service_id: 'mock-kyc', service_name: 'KYC', recorded_days: 14, expected_registrations: 54 },
-    { service_id: 'mock-account', service_name: 'New account', recorded_days: 14, expected_registrations: 40 },
-    { service_id: 'mock-cash', service_name: 'Cash transactions', recorded_days: 14, expected_registrations: 30 },
-    { service_id: 'mock-help', service_name: 'Help desk', recorded_days: 14, expected_registrations: 20 },
-  ],
-  limitations: ['All figures on this view are mock data for UI demonstration.', 'No registrations, queue state, or real historical records are created.', 'Future wait remains unavailable; mock demand is not an operational recommendation.'],
-};
+
 export function LivePredictionsPage() {
-  const [params] = useSearchParams();
-  const preview = params.get('preview') === '1';
   const { session, logout } = useLiveAdmin();
-  const [liveData, setData] = useState<Forecast | null>(null);
-  const data = preview ? mockForecast : liveData;
+  const [data, setData] = useState<Forecast | null>(null);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
-    if (!session || preview) return;
+    if (!session) return;
     let cancelled = false;
     let timer: number;
     const poll = async () => {
@@ -56,14 +37,13 @@ export function LivePredictionsPage() {
     };
     void poll();
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [session, logout, refresh, preview]);
+  }, [session, logout, refresh]);
   const max = Math.max(1, ...(data?.hourly.map(h => h.expected_registrations) || []));
   return <div className="admin-predictions">
-    <header className="admin-predictions__header"><div><h1 className="admin-predictions__title">Predictions</h1><p>Next-day demand · {preview ? 'Mock data preview' : 'provisional recorded-day baseline'}</p></div><div className="analytics-date-controls"><Link to={preview ? '/admin/predictions' : '/admin/predictions?preview=1'}>{preview ? 'Use real data' : 'View mock data'}</Link>{!preview && <button onClick={() => setRefresh(n => n + 1)}>Refresh forecast</button>}</div></header>
-    {preview && <p role="note" className="admin-demo-notice">Mock data preview — all figures below are synthetic. Real queue records are unchanged.</p>}
-    {!preview && error && <p role="alert" className="admin-demo-notice">{error}{data && ' Showing the last successful forecast response.'}</p>}
+    <header className="admin-predictions__header"><div><h1 className="admin-predictions__title">Predictions</h1><p>Next-day demand · provisional recorded-day baseline</p></div><div className="analytics-date-controls"><button onClick={() => setRefresh(n => n + 1)}>Refresh forecast</button></div></header>
+    {error && <p role="alert" className="admin-demo-notice">{error}{data && ' Showing the last successful forecast response.'}</p>}
     {!data ? <p role="status">{error ? 'Forecast unavailable. Retry with Refresh forecast.' : 'Checking recorded history…'}</p> : <>
-      <p role="status">For {data.forecast_date} · {data.timezone} · {preview ? 'Static mock example' : error ? 'Update interrupted' : 'Refreshes every minute'}</p>
+      <p role="status">For {data.forecast_date} · {data.timezone} · {error ? 'Update interrupted' : 'Refreshes every minute'}</p>
       {data.status !== 'available' && <section className="admin-chart-card"><h2 className="admin-chart-card__title">Not enough recent history</h2><p>{data.reason}</p><p>Continue recording real registrations. Sample/demo data is never substituted for missing history.</p></section>}
       <section className="admin-predictions__kpis" aria-label="Forecast summary">{[
         ['Expected registrations', data.expected_registrations ?? 'Unavailable', 'Mean per recorded day, conditional on similar activity'],

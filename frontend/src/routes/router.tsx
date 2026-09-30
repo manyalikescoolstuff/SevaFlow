@@ -1,28 +1,20 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { RoleSelectPage } from '@/pages/RoleSelect';
-
-import { StaffLayout } from '@/pages/staff/StaffLayout';
-import { StaffDashboardPage } from '@/pages/staff/StaffDashboard';
 import { LiveStaffPage } from '@/pages/staff/LiveStaff';
 
 import { AdminLayout } from '@/pages/admin/AdminLayout';
-import { AdminAccess, LiveAdminPage, AdminDemoNotice } from '@/pages/admin/LiveAdmin';
-import { OverviewPage } from '@/pages/admin/Overview';
-import { QueuesPage } from '@/pages/admin/Queues';
-import { CountersPage } from '@/pages/admin/Counters';
-import { AnalyticsPage } from '@/pages/admin/Analytics';
+import { AdminAccess, LiveAdminPage } from '@/pages/admin/LiveAdmin';
 import { LiveAnalyticsPage } from '@/pages/admin/LiveAnalytics';
-import { PredictionsPage } from '@/pages/admin/Predictions';
 import { LivePredictionsPage } from '@/pages/admin/LivePredictions';
 import { StaffAllocationsPage } from '@/pages/admin/StaffAllocations';
 
 /**
- * Application route definitions.
+ * Application route definitions — all routes connect to live backend APIs.
  *
- *  /              → Role selector (dev/demo only)
- *  /staff         → Staff dashboard (single page)
- *  /admin         → Admin layout with sidebar
+ *  /              → Role selector
+ *  /staff         → Staff workstation (Live API)
+ *  /admin         → Admin layout with sidebar (Live API)
  *    /admin            → Overview (index)
  *    /admin/queues     → Queues
  *    /admin/counters   → Counters
@@ -40,10 +32,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/staff/demo',
-    element: <StaffLayout />,
-    children: [
-      { index: true, element: <StaffDashboardPage /> },
-    ],
+    element: <Navigate to="/staff" replace />,
   },
   {
     path: '/admin',
@@ -54,12 +43,8 @@ export const router = createBrowserRouter([
       { path: 'counters', element: <LiveAdminPage view="Counters" /> },
       { path: 'staff-allocation', element: <StaffAllocationsPage /> },
       { path: 'analytics', element: <LiveAnalyticsPage /> },
-      { path: 'demo/analytics', element: <AdminDemoNotice><AnalyticsPage /></AdminDemoNotice> },
       { path: 'predictions', element: <LivePredictionsPage /> },
-      { path: 'demo/predictions', element: <AdminDemoNotice><PredictionsPage /></AdminDemoNotice> },
-      { path: 'demo/overview', element: <AdminDemoNotice><OverviewPage /></AdminDemoNotice> },
-      { path: 'demo/queues', element: <AdminDemoNotice><QueuesPage /></AdminDemoNotice> },
-      { path: 'demo/counters', element: <AdminDemoNotice><CountersPage /></AdminDemoNotice> },
+      { path: 'demo/*', element: <Navigate to="/admin" replace /> },
     ],
   },
 ]);
