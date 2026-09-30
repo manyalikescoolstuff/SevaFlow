@@ -75,3 +75,35 @@ browsers, lock-delayed expiry, exact deadline, recovery, rejection and live stat
 - The pre-existing general recall scheduler, staff command idempotency and hardware
   retry payload validation are outside this focused claim/registration change.
 - No SMS/notification provider is connected.
+
+## Customer email and confirmations
+
+Registration now collects and persists a normalized customer email alongside name and
+phone. The email is authenticated by the same recovery credential, preserved through
+retries and refresh, and included in the registration conflict check. It is not exposed
+by public tracking or admin monitoring.
+
+Migration `f14c9b7d2e10` adds the nullable `tokens.email` column so existing claims remain
+valid. Apply migrations before using the updated form. Email is currently storage and
+contract preparation; no confirmation is sent until an SMTP provider and sender policy
+are configured. The current backend is FastAPI, so Nodemailer cannot run inside it
+without introducing a separate Node mail service. A future mail adapter should send
+only after a committed registration, use an idempotent delivery record, and never make
+queue activation depend on SMTP availability.
+
+## Customer email — stage 2
+
+The registration form now requires an email address, normalizes it to lowercase, and
+sends it in the authenticated `POST /api/v1/customer/register` request. The backend
+stores it on the token and compares it on identical registration retries; a different
+email returns the existing registration conflict. Migration `f14c9b7d2e10` adds the
+nullable column for compatibility with existing tokens. Email is excluded from public
+tracking and admin monitoring.
+
+The current application is FastAPI, not Node. Nodemailer cannot be imported into the
+backend directly. No mail is sent yet because there is no configured SMTP sender,
+provider credentials, delivery retry/idempotency table, or approved confirmation
+message. The safe next mail step is an outbox-backed SMTP adapter (or a separate
+Nodemailer service) that sends only after registration commits; mail failures must not
+roll back or duplicate queue activation. Never put SMTP credentials in the frontend or
+QR URL.

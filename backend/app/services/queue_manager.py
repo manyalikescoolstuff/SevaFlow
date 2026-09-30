@@ -186,13 +186,14 @@ async def recover_token(db: AsyncSession, *, token_id: str,
 async def register_token(
     db: AsyncSession, *, token_id: str, claim_session_id: str,
     recovery_credential_hash: str, tracking_secret_hash: str,
-    customer_name: str, phone_number: str,
+    customer_name: str, phone_number: str, email: str,
 ) -> Token:
     _, token = await _lock_customer_token(db, Token.id == token_id)
     _authenticate(token, claim_session_id, recovery_credential_hash)
     if token.registered_at is not None:
         # A lost response can be retried after dispatch/completion or the deadline.
         if (token.customer_name != customer_name or token.phone_number != phone_number
+                or token.email != email
                 or not _matches(token.tracking_secret_hash, tracking_secret_hash)):
             raise CustomerConflict("Registration already completed with different details")
         return token
@@ -205,6 +206,7 @@ async def register_token(
     token.tracking_secret_hash = tracking_secret_hash
     token.customer_name = customer_name
     token.phone_number = phone_number
+    token.email = email
     token.registered_at = _now()
     _log(db, "Token", token.id, "WAITING", {"scan_sequence": token.scan_sequence})
     return token

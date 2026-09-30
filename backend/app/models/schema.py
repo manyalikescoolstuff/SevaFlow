@@ -146,6 +146,7 @@ class Token(Base):
 
     customer_name = Column(String(120), nullable=True)
     phone_number = Column(String(10), nullable=True)
+    email = Column(String(254), nullable=True)
 
     # Queue ordering — allocated once under Queue row lock on successful claim
     scan_sequence = Column(BigInteger, nullable=True, index=True)  # immutable first-scan order

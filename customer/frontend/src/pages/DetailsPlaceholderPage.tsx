@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ReservationData, ServiceDefinition } from '../types/reservation';
 import { GlassCard } from '../components/GlassCard';
 
@@ -13,6 +13,14 @@ export const DetailsPlaceholderPage: React.FC<DetailsPlaceholderPageProps> = ({
   serviceDef,
   onBack,
 }) => {
+  const [details, setDetails] = useState({ name: '', phone: '', email: '' });
+  const [submitted, setSubmitted] = useState(false);
+
+  const update = (field: keyof typeof details, value: string) => {
+    setDetails((current) => ({ ...current, [field]: value }));
+    setSubmitted(false);
+  };
+
   return (
     <GlassCard>
       <div style={{ padding: '1.75rem 1.25rem', textAlign: 'center' }}>
@@ -47,7 +55,7 @@ export const DetailsPlaceholderPage: React.FC<DetailsPlaceholderPageProps> = ({
           borderRadius: '9999px',
           marginBottom: '0.75rem'
         }}>
-          Stage 2 Placeholder • Scope Locked
+          Stage 2 Preview • Mock data
         </div>
 
         <h2 style={{
@@ -57,13 +65,47 @@ export const DetailsPlaceholderPage: React.FC<DetailsPlaceholderPageProps> = ({
           color: 'var(--text-pure)',
           marginBottom: '0.5rem'
         }}>
-          Customer Details Placeholder
+          Join the waiting queue
         </h2>
 
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-          You have successfully accepted reservation for token <strong>{reservation.display_number}</strong>.
-          Per Stage 1 scope, the customer registration form (Name & Mobile Number) will be connected in Stage 2.
+          Complete registration for token <strong>{reservation.display_number}</strong>. This preview mirrors the
+          customer form; the live QR flow sends these details to the backend.
         </p>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSubmitted(true);
+          }}
+          style={{ textAlign: 'left', marginBottom: '1.25rem' }}
+        >
+          {([
+            ['name', 'Full name', 'Enter your full name', 'text'],
+            ['phone', 'Mobile number', '10-digit mobile number', 'tel'],
+            ['email', 'Email address', 'you@example.com', 'email'],
+          ] as const).map(([field, label, placeholder, type]) => (
+            <label key={field} style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-pure)', fontSize: '0.82rem', fontWeight: 600 }}>
+              {label}
+              <input
+                required
+                type={type}
+                value={details[field]}
+                onChange={(event) => update(field, event.target.value)}
+                placeholder={placeholder}
+                style={{ width: '100%', marginTop: '0.35rem', padding: '0.75rem 0.8rem', borderRadius: '0.7rem', border: '1px solid rgba(148,163,184,0.35)', background: 'rgba(255,255,255,0.08)', color: 'var(--text-pure)', boxSizing: 'border-box' }}
+              />
+            </label>
+          ))}
+          {submitted && (
+            <p role="status" style={{ color: '#34d399', fontSize: '0.8rem', margin: '0 0 0.8rem' }}>
+              Preview registration captured. The live flow will now request a queue token.
+            </p>
+          )}
+          <button type="submit" className="btn-glass-primary" style={{ width: '100%' }}>
+            {submitted ? 'Registration captured' : 'Confirm registration'}
+          </button>
+        </form>
 
         {/* Preserved Context Summary */}
         <div className="glass-subcard" style={{ textAlign: 'left', marginBottom: '1.5rem' }}>

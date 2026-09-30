@@ -11,6 +11,7 @@ class TokenReservationRequest(BaseModel):
     service_id: str
     display_number: str               # Pico-generated display number (e.g. "A-024")
     claim_secret_hash: str            # SHA-256 of claim_secret encoded in QR
+    category: Optional[str] = None    # Explicit customer category; legacy callers may omit
 
 
 class TokenReservationResponse(BaseModel):
@@ -18,6 +19,7 @@ class TokenReservationResponse(BaseModel):
     display_number: str
     reservation_expires_at: datetime
     acknowledged: bool = True
+    customer_entry_path: Optional[str] = None
 
 
 class ClaimRequest(BaseModel):
@@ -54,11 +56,17 @@ class RegistrationRequest(RecoveryRequest):
     tracking_secret_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
     customer_name: str = Field(min_length=2, max_length=120)
     phone_number: str = Field(pattern=r"^[6-9][0-9]{9}$")
+    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)
 
     @field_validator("customer_name", mode="before")
     @classmethod
     def normalize_name(cls, value):
         return " ".join(value.split()) if isinstance(value, str) else value
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
 
 
 class RegistrationResponse(BaseModel):

@@ -254,3 +254,29 @@ See frontend/STAFF_INTEGRATION.md. Pico firmware work remains on hold.
 - All missed routes use saved request identity and expected token state; recall absence also requires expected_recall_attempts to reject stale first-recall commands at the second recall.
 - Single-missed scope only: a second initial miss while another token is MISSED returns 409 without mutation, pending a multiple-missed policy decision. Empty queue retains pending token without auto-recall/closure.
 - Migration e52a7109bc63 applied. All 35 backend tests and staff production build pass. Isolated browser verification confirmed customer MISSED tracking and staff pending-recall list. Remaining recall-button browser checks were interrupted by browser click failures; the full sequence is verified by API tests.
+
+## Live admin monitoring
+- Added ADMIN-only GET /api/v1/admin/monitor, and authenticated /admin Overview, Queues, Counters using the existing shell and visual styles.
+- Polls every five seconds; refresh keeps admin login, sign-out clears it, and failed authentication removes displayed data. No admin counter-operation controls added.
+- Daily registrations/completions use Asia/Kolkata timestamp boundaries. Counter recorded completions are explicitly cumulative; no fictional daily reset or utilization metric.
+- Customer PII/credentials excluded; next three registered waiting tokens shown per queue. No active counter produces unavailable wait.
+- Original screens retained under /admin/demo/*; Analytics/Predictions explicitly labeled sample data.
+- 38 backend tests and frontend build passed. Isolated browser checks passed login, navigation, refresh recovery, demo notice, and sign-out. See frontend/ADMIN_INTEGRATION.md.
+
+## Live admin Analytics — 30 September 2026
+- Added authenticated /admin/analytics endpoint and real Analytics page with date selection, hourly registrations, measured averages/sample counts, and per-service reporting.
+- Asia/Kolkata day boundaries; completion-date averages include older registrations. Wait includes recall delay; service duration includes pauses. Invalid or missing timestamps do not fabricate averages.
+- No utilization percentage without operating/pause history. Predictions stays a demo; original Analytics preserved at /admin/demo/analytics.
+- 41 backend tests pass, including date boundaries, closure exclusion, access, empty reports, invalid/missing timestamps, and genuine zero durations. Frontend build passes.
+
+## Predictions integration — 30 September 2026
+- /admin/predictions now uses authenticated aggregate registrations from the last 28 completed local days. Original sample screen retained at /admin/demo/predictions.
+- Provisional recorded-day mean for tomorrow; requires seven recorded days and last activity within seven days. Service estimate requires three recorded days. Today and unobserved days excluded; upward-selection bias and absent seasonality clearly disclosed.
+- No fabricated confidence interval, waiting-time or queue-pressure forecast. Predictions never mutate queue/counter state.
+- 45 backend tests and frontend build pass. Browser verified insufficient-history state and readable cards. Ready forecasts are covered by deterministic and PostgreSQL API tests.
+
+## Customer email — stage 2 — 30 September 2026
+- Registration now requires normalized email plus existing name and phone; email is stored on Token through migration f14c9b7d2e10.
+- Authenticated retries preserve the email; changed email conflicts. Tracking/admin outputs exclude it.
+- Customer frontend build passes; 45 backend tests pass. No mail delivery yet: current backend is FastAPI, and Nodemailer needs a separate Node service or an SMTP adapter.
+- Before sending confirmations, choose provider/sender policy and add committed outbox/idempotency so SMTP failures cannot roll back or duplicate queue activation.

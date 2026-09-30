@@ -75,7 +75,7 @@ def recovery(n=0):
 
 
 def registration(n=0):
-    return dict(**recovery(n), tracking_secret_hash='c'*64, customer_name='Manya Kumar', phone_number='9876543210')
+    return dict(**recovery(n), tracking_secret_hash='c'*64, customer_name='Manya Kumar', phone_number='9876543210', email='manya@example.com')
 
 
 async def test_scan_order_survives_reverse_registration_and_retries(contract):
@@ -163,7 +163,7 @@ async def test_registered_recovery_after_expiry_and_private_tracking(contract):
     await client.post('/register', json=registration())
     async with sessions.begin() as db:
         token = await db.get(Token, 't0')
-        assert token.phone_number == '9876543210' and token.customer_name == 'Manya Kumar'
+        assert token.phone_number == '9876543210' and token.customer_name == 'Manya Kumar' and token.email == 'manya@example.com'
         token.reservation_expires_at = qm._now()-timedelta(minutes=1)
     assert (await client.post('/recover', json=recovery())).json()['status'] == 'WAITING'
     assert (await client.post('/register', json=registration())).status_code == 200

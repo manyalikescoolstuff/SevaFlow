@@ -100,9 +100,9 @@ function CustomerApp() {
     catch (e) { setError(e instanceof Error ? e : new Error('Request failed')); if (e instanceof ApiError && e.status === 410) setExpired(true); }
     finally { operation.current = false; setBusy(false); }
   };
-  const register = async (name: string, phone: string) => run(async () => {
+  const register = async (name: string, phone: string, email: string) => run(async () => {
     const credentials = saved.current!;
-    await api('/register', { ...await ownership(credentials), tracking_secret_hash: await hash(credentials.tracking), customer_name: name, phone_number: phone });
+    await api('/register', { ...await ownership(credentials), tracking_secret_hash: await hash(credentials.tracking), customer_name: name, phone_number: phone, email });
     const data = await api<Claim>('/recover', await ownership(credentials));
     setClaim(data); setExpired(false);
     sessionStorage.removeItem(`sevaflow_draft:${data.token_id}`);
