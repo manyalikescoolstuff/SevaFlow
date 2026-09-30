@@ -28,7 +28,16 @@ export function getStoredReservations(): ReservationData[] {
     return INITIAL_MOCK_RESERVATIONS;
   }
   try {
-    return JSON.parse(raw);
+    const parsed: ReservationData[] = JSON.parse(raw);
+    const missing = INITIAL_MOCK_RESERVATIONS.filter(
+      init => !parsed.some(p => p.token_id === init.token_id || p.display_number.toUpperCase() === init.display_number.toUpperCase())
+    );
+    if (missing.length > 0) {
+      const merged = [...parsed, ...missing];
+      localStorage.setItem(STORAGE_KEY_RESERVATIONS, JSON.stringify(merged));
+      return merged;
+    }
+    return parsed;
   } catch {
     localStorage.setItem(STORAGE_KEY_RESERVATIONS, JSON.stringify(INITIAL_MOCK_RESERVATIONS));
     return INITIAL_MOCK_RESERVATIONS;

@@ -36,12 +36,11 @@ export const RejectedPage: React.FC<RejectedPageProps> = ({ reservation, onRecon
           color: 'var(--text-pure)',
           marginBottom: '0.5rem'
         }}>
-          Reservation Declined
+          Token Destroyed
         </h2>
 
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-          You have chosen to decline token reservation <strong>{reservation.display_number}</strong>.
-          The token has been released from your session and will not enter the active queue.
+          Your token <strong>{reservation.display_number}</strong> has been cancelled.
         </p>
 
         <div className="glass-subcard" style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
@@ -53,8 +52,16 @@ export const RejectedPage: React.FC<RejectedPageProps> = ({ reservation, onRecon
         <button
           type="button"
           className="btn-glass-reject"
+          onClick={() => { window.location.href = '/'; }}
+          style={{ width: '100%', borderColor: 'rgba(255,255,255,0.15)', marginBottom: '0.5rem' }}
+        >
+          Return to Home
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
           onClick={onReconsider}
-          style={{ width: '100%', borderColor: 'rgba(255,255,255,0.15)' }}
+          style={{ width: '100%' }}
         >
           🔄 Re-open Welcome Page (Demo)
         </button>

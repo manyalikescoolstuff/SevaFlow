@@ -100,7 +100,7 @@ export function getServiceDefinition(cat: string | null | undefined): ServiceDef
   if (normalized === 'kyc') {
     return SERVICE_REGISTRY.kyc;
   }
-  if (normalized === 'new_account' || normalized === 'bank' || normalized === 'pan') {
+  if (normalized === 'new_account' || normalized === 'account' || normalized === 'bank' || normalized === 'pan') {
     return SERVICE_REGISTRY.new_account;
   }
   if (normalized === 'cash' || normalized === 'income') {

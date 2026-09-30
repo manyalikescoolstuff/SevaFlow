@@ -36,6 +36,18 @@ export const INITIAL_MOCK_RESERVATIONS: ReservationData[] = [
   },
   {
     token_id: 'tok-res-003',
+    display_number: 'B024',
+    service_id: 'svc-pan',
+    category: 'new_account',
+    status: 'RESERVED',
+    issued_at: new Date(Date.now() - 60000).toISOString(),
+    expires_at: new Date(Date.now() + 240000).toISOString(),
+    hardware_reservation_id: 'pico_res_new_024',
+    claim_secret_hash: 'hash_claim_new_024',
+    is_registered: false,
+  },
+  {
+    token_id: 'tok-res-003-b',
     display_number: 'B008',
     service_id: 'svc-pan',
     category: 'new_account',

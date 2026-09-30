@@ -4,6 +4,7 @@ import { WelcomePage } from './pages/WelcomePage';
 import { RegistrationPage } from './pages/RegistrationPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { useQueueUpdates } from './useQueueUpdates';
+import { MockApp } from './MockApp';
 import { getServiceDefinition } from './config/services';
 import { localizeService } from './config/serviceTranslations';
 import { useLanguage } from './language';
@@ -109,12 +110,13 @@ function CustomerApp() {
     {error && <div className="error-notice" role="alert"><p>{errorText}</p>{!busy && <button className="secondary-button" onClick={() => setAttempt(n => n + 1)}>{t('Retry / recover token', 'पुनः प्रयास / टोकन वापस पाएँ')}</button>}</div>}
     {loading ? <section className="glass-panel message-card" role="status">{t('Verifying your reservation…', 'आपके आरक्षण की जाँच हो रही है…')}</section>
       : claim?.registered_at ? <TrackingPage claim={claim} tracking={tracking} stale={stale} secondsRemaining={secondsRemaining} serviceLabel={serviceLabel} />
-      : claim?.status === 'CANCELLED' ? <section className="glass-panel message-card"><h2>{t('Reservation declined', 'आरक्षण अस्वीकार किया गया')}</h2><p>{t('You can request a new token at the kiosk.', 'आप कियोस्क से नया टोकन ले सकते हैं।')}</p></section>
+      : claim?.status === 'CANCELLED' ? <section className="glass-panel message-card"><h2>{t('Token Destroyed', 'टोकन नष्ट')}</h2><p>{t('Your token has been cancelled.', 'आपका टोकन रद्द कर दिया गया है।')}</p><button className="secondary-button" onClick={() => window.location.href = '/'}>{t('Back to home', 'मुख्य पृष्ठ पर वापस')}</button></section>
       : expired || claim?.status === 'EXPIRED' ? <section className="glass-panel message-card"><h2>{t('Registration window ended', 'पंजीकरण का समय समाप्त')}</h2><p>{t('Request a new token at the kiosk. If you just submitted your details, recover your token to check the result.', 'कियोस्क से नया टोकन लें। यदि आपने अभी जानकारी भेजी है, तो परिणाम देखने के लिए टोकन वापस पाएँ।')}</p><button className="secondary-button" onClick={() => setAttempt(n => n + 1)}>{t('Recover token', 'टोकन वापस पाएँ')}</button></section>
       : claim && localizedService && view === 'details' ? <RegistrationPage claim={claim} serviceLabel={serviceLabel} offset={offset} busy={busy} onBack={() => { persist({ ...saved.current!, accepted: false }); setView('welcome'); }} onExpired={onExpired} onSubmit={register} />
       : claim && localizedService ? <WelcomePage reservation={{ display_number: claim.display_number, expires_at: claim.reservation_expires_at }} serviceDef={localizedService} busy={busy} serverOffset={offset} onAccept={accept} onReject={reject} onExpired={onExpired} /> : null}
   </main>;
 }
 export function App() {
-  return <CustomerApp />;
+  const isPreview = new URLSearchParams(location.search).get('preview') === '1';
+  return isPreview ? <MockApp /> : <CustomerApp />;
 }
