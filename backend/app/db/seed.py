@@ -5,10 +5,11 @@ Staff credentials (printed once to console on first run):
   admin / sevaflow_admin
   staff01..06 / sevaflow_staff
 """
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.core.security import hash_password
-from app.models.schema import Service, Queue, Counter, Staff
+from app.models.schema import Service, Queue, Counter, Staff, Token
 
 
 async def seed_db(db: AsyncSession):
@@ -65,6 +66,45 @@ async def seed_db(db: AsyncSession):
         Counter(id="ctr-06", label="Counter 06", service_id="svc-aadhaar", queue_id="q-aadhaar", status="PAUSED", staff_id="stf-06"),
     ]
     db.add_all(counters)
+    await db.flush()
+
+    # --- Mock Tokens (Customers) for Demo ---
+    now = datetime.now(timezone.utc)
+    future = now + timedelta(minutes=30)
+    
+    tokens = [
+        # WAITING tokens
+        Token(id="tok-01", display_number="A001", queue_id="q-aadhaar", status="WAITING", 
+              hardware_reservation_id="hw-01", claim_secret_hash="fakehash", 
+              customer_name="Ramesh Kumar", phone_number="9876543210", 
+              scan_sequence=1, sort_key=1, reservation_expires_at=future, registered_at=now - timedelta(minutes=10)),
+        Token(id="tok-02", display_number="A002", queue_id="q-aadhaar", status="WAITING", 
+              hardware_reservation_id="hw-02", claim_secret_hash="fakehash", 
+              customer_name="Sita Devi", phone_number="9876543211", 
+              scan_sequence=2, sort_key=2, reservation_expires_at=future, registered_at=now - timedelta(minutes=5)),
+        Token(id="tok-03", display_number="P001", queue_id="q-pan", status="WAITING", 
+              hardware_reservation_id="hw-03", claim_secret_hash="fakehash", 
+              customer_name="Vijay Singh", phone_number="9876543212", 
+              scan_sequence=1, sort_key=1, reservation_expires_at=future, registered_at=now - timedelta(minutes=15)),
+        
+        # SERVING tokens
+        Token(id="tok-04", display_number="I001", queue_id="q-income", status="SERVING", 
+              hardware_reservation_id="hw-04", claim_secret_hash="fakehash", 
+              customer_name="Anita Roy", phone_number="9876543213", 
+              scan_sequence=1, sort_key=1, reservation_expires_at=future, registered_at=now - timedelta(minutes=20),
+              called_at=now - timedelta(minutes=10), serving_started_at=now - timedelta(minutes=9)),
+        
+        # COMPLETED tokens
+        Token(id="tok-05", display_number="L001", queue_id="q-land", status="COMPLETED", 
+              hardware_reservation_id="hw-05", claim_secret_hash="fakehash", 
+              customer_name="Karan Patel", phone_number="9876543214", 
+              scan_sequence=1, sort_key=1, reservation_expires_at=future, registered_at=now - timedelta(minutes=60),
+              called_at=now - timedelta(minutes=50), serving_started_at=now - timedelta(minutes=45), completed_at=now - timedelta(minutes=30)),
+    ]
+    db.add_all(tokens)
+    
+    # Assign SERVING token to a counter
+    counters[2].current_token_id = "tok-04" # ctr-03 is serving I001
 
     await db.commit()
     print("[SevaFlow] Seed complete.")
